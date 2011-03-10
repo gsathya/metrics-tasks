@@ -12,13 +12,16 @@ The rules are simple:
    Java, R, Python code for metrics analyses, we create a new subdirectory
    here.  The naming convention is simply that we use the ticket number
    that Trac assigns as subdirectory name.  For example, code for ticket
-   #1234 should go in subdirectory 1234/.  If there's no Trac ticket yet,
-   then why are you working on it?  Go create a Trac ticket first!
+   #1234 should go in subdirectory task-1234/.  If there's no Trac ticket
+   yet, then why are you working on it?  Go create a Trac ticket first!
 
  - There should be a README file in every subdirectory saying what the
    code does, what libraries are required, and so on.  Don't spend much
    time on writing a good README, but imagine that you might want to know
    what's going on in 3, 6, or 12 months.
+
+ - Don't check in binaries.  We assume that whoever checks out code from
+   this repository knows how to download libraries and compile sources.
 
  - If we open a follow-up ticket to a ticket that has code in this
    repository, we `git mv` the files and create a tiny text file in the
