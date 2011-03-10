@@ -1,0 +1,33 @@
+Welcome to the metrics-tasks code repository!
+
+This repository contains technical reports and code snippets for metrics
+analyses.  Most of this code was written with the single purpose of
+answering a metrics question.  Once it's answered, we're done.  But the
+code should be somewhere in case we want to answer a similar question in
+the future.  And this "somewhere" shouldn't be someone's desktop.
+
+The rules are simple:
+
+ - Whenever we feel like we want to share technical report sources or
+   Java, R, Python code for metrics analyses, we create a new subdirectory
+   here.  The naming convention is simply that we use the ticket number
+   that Trac assigns as subdirectory name.  For example, code for ticket
+   #1234 should go in subdirectory 1234/.  If there's no Trac ticket yet,
+   then why are you working on it?  Go create a Trac ticket first!
+
+ - There should be a README file in every subdirectory saying what the
+   code does, what libraries are required, and so on.  Don't spend much
+   time on writing a good README, but imagine that you might want to know
+   what's going on in 3, 6, or 12 months.
+
+ - If we open a follow-up ticket to a ticket that has code in this
+   repository, we `git mv` the files and create a tiny text file in the
+   original ticket directory saying where the code moved.
+
+ - The code in a ticket may never rely on the code of another ticket in
+   this repository.  Consider the subdirectories as small projects that we
+   were just too lazy to create new Git repositories for.  Other than that
+   subdirectories here have nothing in common.
+
+So much about the rules.  Now go answer fine metrics questions!
+
