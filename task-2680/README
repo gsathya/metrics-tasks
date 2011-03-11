@@ -1,0 +1,145 @@
+This ticket contains Java and R code to
+
+ a) process bridge and relay data to convert them to a format that is more
+    useful for researchers and
+ b) verify that the output data files are valid.
+
+This README has a separate section for each Java or R code snippet.
+
+The Java applications produce three output formats containing bridge
+descriptors, bridge status lines, and hashed relay identities.  The data
+formats are described below.
+
+--------------------------------------------------------------------------
+
+ProcessSanitizedBridges.java
+
+ - Download sanitized bridge descriptors from the metrics website, e.g.,
+   https://metrics.torproject.org/data/bridge-descriptors-2011-01.tar.bz2,
+   and extract them in a local directory, e.g., bridge-descriptors/.
+
+ - Download Apache Commons Codec 1.4 or higher and put in in this
+   directory.
+
+ - Compile the Java class, e.g.,
+   $ javac -cp commons-codec-1.4.jar ProcessSanitizedBridges.java
+
+ - Run the Java class, e.g.,
+   $ java -cp .:commons-codec-1.4.jar ProcessSanitizedBridges
+     bridge-descriptors/
+
+ - Once the Java application is done, you'll find the two files
+   statuses.csv and descriptors.csv in this directory.
+
+--------------------------------------------------------------------------
+
+ProcessRelayConsensuses.java
+
+ - Download v3 relay consensuses from the metrics website, e.g.,
+   https://metrics.torproject.org/data/consensuses-2011-01.tar.bz2, and
+   extract them in a local directory, e.g., consensuses/.
+
+ - Download Apache Commons Codec 1.4 or higher and put in in this
+   directory, unless you haven't already done this above for
+   ProcessSanitizedBridges.java.
+
+ - Compile the Java class, e.g.,
+   $ javac -cp commons-codec-1.4.jar ProcessRelayConsensuses.java
+
+ - Run the Java class, e.g.,
+   $ java -cp .:commons-codec-1.4.jar ProcessRelayConsensuses consensuses/
+
+ - Once the Java application is done, you'll find a file relays.csv in
+   this directory.
+
+--------------------------------------------------------------------------
+
+verify.R
+
+ - Run the R verification script like this:
+   $ R --slave -f verify.R
+
+--------------------------------------------------------------------------
+
+descriptors.csv
+
+The descriptors.csv file contains one line for each bridge descriptor that
+a bridge has published.  This descriptor consists of fields coming from
+the bridge's server descriptor and the bridge's extra-info descriptor that
+was published at the same time.
+
+The columns in descriptors.csv are:
+
+ - descriptor: Hex-formatted descriptor identifier
+ - fingerprint: Hex-formatted SHA-1 hash of identity fingerprint
+ - published: ISO-formatted descriptor publication time
+ - address: Sanitized IPv4 address in dotted notation
+ - orport: OR port
+ - dirport: Dir port
+ - version: Tor version
+ - platform: Operating system family (Windows, Linux, etc.)
+ - uptime: Uptime in seconds
+ - bridgestatsend: ISO-formatted time when stats interval ended
+ - bridgestatsseconds: Stats interval length in seconds
+ - ??: Unique client IP addresses that could not be resolved
+ - a1: Unique client IP addresses from anonymous proxies
+ - a2: Unique client IP addresses from satellite providers
+ - ad: Unique client IP addresses from Andorra
+ - ae: Unique client IP addresses from the United Arab Emirates
+ - [...] See ISO 3166-1 alpha-2 country codes
+ - zw: Unique client IP addresses from Zimbabwe
+ - bridgestatscountries: Number of countries with non-zero unique IPs
+ - bridgestatstotal: Total number of unique IPs
+
+There are two sources for the bridgestats* and country-code columns,
+depending on Tor's version.  Bridges running Tor version 0.2.1.x or
+earlier use dynamic stats intervals from a few hours to a few days.
+Bridges running early 0.2.2.x versions published faulty stats and are
+therefore removed from descriptors.csv.  Bridges running 0.2.2.x or higher
+(except the faulty 0.2.2.x versions) collect stats in 24-hour intervals.
+
+--------------------------------------------------------------------------
+
+statuses.csv
+
+The statuses.csv file contains one line for every bridge that is
+referenced in a bridge network status.  Note that if a bridge is running
+for, say, 12 hours, it will be contained in 24 half-hourly published
+statuses in that time and will be listed 24 times in statuses.csv.
+
+The columns in statuses.csv are:
+
+ - status: ISO-formatted status publication time
+ - fingerprint: Hex-formatted SHA-1 hash of identity fingerprint
+ - descriptor: Hex-formatted descriptor identifier
+ - published: ISO-formatted descriptor publication time
+ - address: Sanitized IPv4 address in dotted notation
+ - orport: OR port
+ - dirport: Dir port
+ - authority: TRUE if bridge has the Authority flag, FALSE otherwise
+ - badexit: TRUE if bridge has the BadExit flag, FALSE otherwise
+ - baddirectory: TRUE if bridge has the BadDirectory flag, FALSE otherwise
+ - exit: TRUE if bridge has the Exit flag, FALSE otherwise
+ - fast: TRUE if bridge has the Fast flag, FALSE otherwise
+ - guard: TRUE if bridge has the Guard flag, FALSE otherwise
+ - named: TRUE if bridge has the Named flag, FALSE otherwise
+ - stable: TRUE if bridge has the Stable flag, FALSE otherwise
+ - running: TRUE if bridge has the Running flag, FALSE otherwise
+ - valid: TRUE if bridge has the Valid flag, FALSE otherwise
+ - v2dir: TRUE if bridge has the V2Dir flag, FALSE otherwise
+
+--------------------------------------------------------------------------
+
+relays.csv
+
+The relays.csv file contains SHA-1 hashes of identity fingerprints of
+normal relays.  If a bridge uses the same identity key that it also used
+as a relay, it might observe more users than it would observe as a pure
+bridge.  Therefore, bridges that have been running as relays before should
+be excluded from bridge statistics.
+
+The columns in relays.csv are:
+
+ - consensus: ISO-formatted consensus publication time
+ - fingerprint: Hex-formatted SHA-1 hash of identity fingerprint
+
