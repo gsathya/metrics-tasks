@@ -3,4 +3,5 @@
 bridge-descriptors/
 commons-codec-1.4.jar
 consensuses/
+*.tar.bz2
 
