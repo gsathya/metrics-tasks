@@ -1,0 +1,5 @@
+Here's how you run the censorship detector prototype:
+
+  $ wget https://metrics.torproject.org/csv/direct-users.csv
+  $ R --slave -f detect-censorship.R
+
