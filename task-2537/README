@@ -1,0 +1,15 @@
+BridgeDBLogConverter.java
+
+The BridgeDBLogConverter takes BridgeDB's logs as input and writes
+(non-sanitized) bridge pool assignments to disk as output.
+
+ - Compile the Java class, e.g.,
+   $ javac BridgeDBLogConverter.java
+
+ - If your bridgedb.log file contains log lines from more than one
+   calendar year, split it into as many log files as necessary to ensure
+   that each file only contains log lines from a single calendar year!
+
+ - Run the Java class, e.g.,
+   $ java BridgeDBLogConverter bridgedb.log 2011 assignments.log
+
