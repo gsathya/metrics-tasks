@@ -6,9 +6,9 @@ This ticket contains Java and R code to
 
 This README has a separate section for each Java or R code snippet.
 
-The Java applications produce three output formats containing bridge
-descriptors, bridge status lines, and hashed relay identities.  The data
-formats are described below.
+The Java applications produce four output formats containing bridge
+descriptors, bridge status lines, bridge pool assignments, and hashed
+relay identities.  The data formats are described below.
 
 --------------------------------------------------------------------------
 
@@ -30,6 +30,23 @@ ProcessSanitizedBridges.java
 
  - Once the Java application is done, you'll find the two files
    statuses.csv and descriptors.csv in this directory.
+
+--------------------------------------------------------------------------
+
+ProcessSanitizedAssignments.java
+
+ - Download sanitized bridge pool assignments from the metrics website,
+   e.g., https://metrics.torproject.org/data/bridge-pool-assignments-2011-01.tar.bz2
+   and extract them in a local directory, e.g., bridge-pool-assignments/.
+
+ - Compile the Java class, e.g.,
+   $ javac ProcessSanitizedAssignments.java
+
+ - Run the Java class, e.g.,
+   $ java ProcessSanitizedAssignments bridge-pool-assignments/
+
+ - Once the Java application is done, you'll find a file assignments.csv
+   in this directory.
 
 --------------------------------------------------------------------------
 
@@ -127,6 +144,23 @@ The columns in statuses.csv are:
  - running: TRUE if bridge has the Running flag, FALSE otherwise
  - valid: TRUE if bridge has the Valid flag, FALSE otherwise
  - v2dir: TRUE if bridge has the V2Dir flag, FALSE otherwise
+
+--------------------------------------------------------------------------
+
+assignments.csv
+
+The assignments.csv file contains one line for every running bridge and
+the rings, subrings, and buckets that BridgeDB assigned it to.
+
+The columns in assignments.csv are:
+
+ - assignment: ISO-formatted bridge pool assignment time
+ - fingerprint: Hex-formatted SHA-1 hash of identity fingerprint
+ - type: Name of the distributor: "https", "email", or "unallocated"
+ - ring: Ring number, only for distributor "https"
+ - port: Port subring
+ - flag: Flag subring
+ - bucket: File bucket, only for distributor "unallocated"
 
 --------------------------------------------------------------------------
 

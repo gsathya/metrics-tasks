@@ -25,3 +25,9 @@ if (file.exists("relays.csv")) {
   summary(as.POSIXct(r$consensus))
 }
 
+if (file.exists("assignments.csv")) {
+  cat("Verifying assignments.csv. This may take a while.\n")
+  r <- read.csv("assignments.csv", stringsAsFactors = FALSE)
+  summary(as.POSIXct(r$assignment))
+}
+
