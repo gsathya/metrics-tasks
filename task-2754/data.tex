@@ -21,7 +21,8 @@ information in Section~\ref{sec:bridgesan}.
 Second, we describe the numerous aggregate statistics that relays publish
 about their usage \cite{loesing2010case}
 in Sections~\ref{sec:bytehist} to \ref{fig:connbidirect}.
-Third, we delineate the output of various Tor services like GetTor or
+Third, we delineate the output of various Tor services like BridgeDB,
+GetTor, or
 Tor Check as well as specific measurement tools like Torperf in
 Sections~\ref{sec:torperf} to \ref{sec:exitlist}.
 All data described in this report are available for download on the
@@ -643,6 +644,60 @@ $76997E6557828E8E57F70FDFBD93FB3AA470C620~Amunet8      # 3rd hop
 file (reformatted and annotated with comments)}
 \label{fig:torperf}
 \end{figure}
+
+\section{BridgeDB pool assignment files}
+
+BridgeDB is the software that receives bridge network statuses containing
+the information which bridges are running from the bridge authority,
+assigns these bridges to persistent distribution rings, and hands them out
+to bridge users.
+BridgeDB periodically dumps the list of running bridges with information
+about the rings, subrings, and file buckets to which they are assigned to
+a local file.
+The sanitized versions of these lists containing SHA-1 hashes of bridge
+fingerprints instead of the original fingerprints are available for
+statistical analysis.
+
+\begin{figure}
+\begin{verbatim}
+bridge-pool-assignment 2011-03-13 14:38:03
+00b834117566035736fc6bd4ece950eace8e057a unallocated
+00e923e7a8d87d28954fee7503e480f3a03ce4ee email port=443
+    flag=stable
+0103bb5b00ad3102b2dbafe9ce709a0a7c1060e4 https ring=2 port=443
+    flag=stable
+[...]
+\end{verbatim}
+%----------------------------------------------------------------
+\vspace{-1em}
+\caption{BridgeDB pool assignment file from March 13, 2011}
+\label{fig:bridgeassignments}
+\end{figure}
+
+Figure~\ref{fig:bridgeassignments} shows a BridgeDB pool assignment file
+from March 13, 2011.
+Every such file begins with a line containing the timestamp when BridgeDB
+wrote this file.
+Subsequent lines always start with the SHA-1 hash of a bridge fingerprint,
+followed by ring, subring, and/or file bucket information.
+There are currently three distributor ring types in BridgeDB:
+
+\begin{enumerate}
+\item \texttt{unallocated}: These bridges are not distributed by BridgeDB,
+but are either reserved for manual distribution or are written to file
+buckets for distribution via an external tool.
+If a bridge in the \texttt{unallocated} ring is assigned to a file bucket,
+this is noted by \verb+bucket=$bucketname+.
+\item \texttt{email}: These bridges are distributed via an e-mail
+autoresponder.  Bridges can be assigned to subrings by their OR port or
+relay flag which is defined by \verb+port=$port+ and/or \verb+flag=$flag+.
+\item \texttt{https}: These bridges are distributed via https server.
+There are multiple https rings to further distribute bridges by IP address
+ranges, which is denoted by \verb+ring=$ring+.
+Bridges in the \texttt{https} ring can also be assigned to subrings by
+OR port or relay flag which is defined by \verb+port=$port+ and/or
+\verb+flag=$flag+.
+\end{enumerate}
 
 \section{GetTor statistics file}
 
