@@ -1,0 +1,93 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+  <title>Tor Daily Users Thematic Mapping API Prototype</title>
+  <script src="http://www.google.com/jsapi?key=ABQIAAAAgej9iuh3YJNjEPuctrZMehRNZJOGGZ5AJFYnuNGvvgpHXAyWEBRJgywKSq0D3AFCjF17DTpYDdYu-w"></script>
+  <script src="tmapi-0.1.js"></script>
+  <script src="worldborders.js"></script>
+  <link href="/css/stylesheet-ltr.css" type="text/css" rel="stylesheet">
+  <link href="/images/favicon.ico" type="image/x-icon" rel="shortcut icon">
+</head>
+<body onload="init()">
+  <div class="center">
+    <table class="banner" border="0" cellpadding="0" cellspacing="0" summary="">
+
+<tr>
+  <td class="banner-left">
+    <img src="/images/top-left.png" width="193" height="79">
+  </td>
+  <td class="banner-middle"></td>
+  <td class="banner-right"></td>
+</tr>
+</table>
+
+    <div class="main-column">
+        <h2>Tor Daily Users Thematic Mapping API Prototype</h2>
+        <br>
+
+        <p>This website is a prototype of the
+        <a href="http://thematicmapping.org/">Thematic Mapping API</a>
+        to display daily Tor users.</p>
+
+  <div id='map_container' style='height: 800px; width: 800px;'>
+    <div id='map' style='height: 100%;'></div>
+  </div>
+  <script type="text/javascript">
+    google.load("visualization", "1");
+    google.load("earth", "1");
+
+    var earth = null;
+
+    function init() {
+      google.earth.createInstance("map", initCallback, failureCallback);
+    }
+
+    function initCallback(object) {
+      earth = object;
+      earth.getWindow().setVisibility(true);
+
+      // Load statistics from Google Spreadsheet.
+      var query = new google.visualization.Query('https://spreadsheets.google.com/tq?key=0AujpbDQoBXkXdHdrUHhDZTE4cTllWUwtTjdKWjZZWGc&hl=en&authkey=CJHb_p4F#gid=0');
+      // Send the query with a callback function.
+      query.send(handleQueryResponse);
+
+      // Called when the query response is returned.
+      function handleQueryResponse(response) {
+
+        var data = response.getDataTable();
+
+        var map = new TME.Map.Kml.GoogleViz();
+
+        var options = {
+          type: 'prism',
+          title: 'Daily Tor users on March 9, 2011',
+          maxHeight: 2000000,
+          colorType: 'scale',
+          classification: 'equal',
+          geometry: worldBorders
+        };
+
+        var kml = map.draw(data, options);
+
+        var kmlObject = earth.parseKml(kml);
+        earth.getFeatures().appendChild(kmlObject);		
+
+        var lookAt = earth.getView().copyAsLookAt(earth.ALTITUDE_RELATIVE_TO_GROUND);
+        lookAt.setLatitude(35);
+        lookAt.setLongitude(-25);
+        lookAt.setRange(12000000);
+        earth.getView().setAbstractView(lookAt);
+      }
+    }
+
+    function failureCallback(object) {
+    }
+
+  </script>
+
+    </div>
+  </div>
+</body>
+</html>
+

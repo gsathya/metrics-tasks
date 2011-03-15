@@ -1,0 +1,19 @@
+Thematic Mapping API prototype for Tor metrics data
+---------------------------------------------------
+
+ - Download the Thematic Mapping API JavaScript code from
+   http://thematicmapping.org/ and place it in this directory.  In
+   particular, you'll need tmapi-0.1.js and worldborders.js.
+
+ - Create your own Google Spreadsheet and replace the link
+   "https://spreadsheets.google.com/tq?key=0AujpbDQoBXkX..." in index.html
+   with a link to your spreadsheet.  Feel free to use the existing link,
+   but note that you cannot change the data in it.
+
+ - Register your domain at Google for using the Google Earth Plug-In on
+   your website.  If you don't, the plugin won't load on your website, but
+   it will tell you where to register.
+
+ - Make your website available via thttpd, Apache, or the web server of
+   your choice.
+
