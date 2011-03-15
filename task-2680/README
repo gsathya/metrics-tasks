@@ -1,3 +1,22 @@
+Presenting bridge usage data so that researchers can focus on the math
+======================================================================
+
+ "Right now the process of learning how to parse bridge consensus files,
+  bridge descriptor files, match up which descriptors go with which
+  consensus line, which bridges were Running when, etc is too
+  burdensome -- researchers who want to analyze bridge reachability are
+  giving up before they even get to the part they tried to sign up for."
+  (from arma's description of this ticket in Trac)
+
+This ticket contains the code to process the data tarballs from the
+metrics website and convert them to a format that is more useful for
+researchers.  This README also contains instructions for working with the
+new data formats.
+
+
+1  Processing data tarballs from metrics.tpo
+--------------------------------------------
+
 This ticket contains Java and R code to
 
  a) process bridge and relay data to convert them to a format that is more
@@ -6,13 +25,9 @@ This ticket contains Java and R code to
 
 This README has a separate section for each Java or R code snippet.
 
-The Java applications produce four output formats containing bridge
-descriptors, bridge status lines, bridge pool assignments, and hashed
-relay identities.  The data formats are described below.
 
---------------------------------------------------------------------------
-
-ProcessSanitizedBridges.java
+1.1  ProcessSanitizedBridges.java
+---------------------------------
 
  - Download sanitized bridge descriptors from the metrics website, e.g.,
    https://metrics.torproject.org/data/bridge-descriptors-2011-01.tar.bz2,
@@ -31,9 +46,9 @@ ProcessSanitizedBridges.java
  - Once the Java application is done, you'll find the two files
    statuses.csv and descriptors.csv in this directory.
 
---------------------------------------------------------------------------
 
-ProcessSanitizedAssignments.java
+1.2  ProcessSanitizedAssignments.java
+-------------------------------------
 
  - Download sanitized bridge pool assignments from the metrics website,
    e.g., https://metrics.torproject.org/data/bridge-pool-assignments-2011-01.tar.bz2
@@ -48,9 +63,9 @@ ProcessSanitizedAssignments.java
  - Once the Java application is done, you'll find a file assignments.csv
    in this directory.
 
---------------------------------------------------------------------------
 
-ProcessRelayConsensuses.java
+1.3  ProcessRelayConsensuses.java
+---------------------------------
 
  - Download v3 relay consensuses from the metrics website, e.g.,
    https://metrics.torproject.org/data/consensuses-2011-01.tar.bz2, and
@@ -69,16 +84,24 @@ ProcessRelayConsensuses.java
  - Once the Java application is done, you'll find a file relays.csv in
    this directory.
 
---------------------------------------------------------------------------
 
-verify.R
+1.4  verify.R
+-------------
 
  - Run the R verification script like this:
    $ R --slave -f verify.R
 
---------------------------------------------------------------------------
 
-descriptors.csv
+2  New data formats
+-------------------
+
+The Java applications produce four output formats containing bridge
+descriptors, bridge status lines, bridge pool assignments, and hashed
+relay identities.  The data formats are described below.
+
+
+2.1  descriptors.csv
+--------------------
 
 The descriptors.csv file contains one line for each bridge descriptor that
 a bridge has published.  This descriptor consists of fields coming from
@@ -115,9 +138,9 @@ Bridges running early 0.2.2.x versions published faulty stats and are
 therefore removed from descriptors.csv.  Bridges running 0.2.2.x or higher
 (except the faulty 0.2.2.x versions) collect stats in 24-hour intervals.
 
---------------------------------------------------------------------------
 
-statuses.csv
+2.2  statuses.csv
+-----------------
 
 The statuses.csv file contains one line for every bridge that is
 referenced in a bridge network status.  Note that if a bridge is running
@@ -145,9 +168,16 @@ The columns in statuses.csv are:
  - valid: TRUE if bridge has the Valid flag, FALSE otherwise
  - v2dir: TRUE if bridge has the V2Dir flag, FALSE otherwise
 
---------------------------------------------------------------------------
+Note that there is no tight relation between statuses.csv and
+descriptors.csv when it comes to bridge usage statistics  (even though
+one can link them via the bridge's server descriptor identifier).  A
+bridge is free to write anything in its extra-info descriptor, including a
+few days old bridge statistics.  That is in no way related to the bridge
+authority thinking that a bridge is running at a later time.
 
-assignments.csv
+
+2.3  assignments.csv
+--------------------
 
 The assignments.csv file contains one line for every running bridge and
 the rings, subrings, and buckets that BridgeDB assigned it to.
@@ -162,9 +192,9 @@ The columns in assignments.csv are:
  - flag: Flag subring
  - bucket: File bucket, only for distributor "unallocated"
 
---------------------------------------------------------------------------
 
-relays.csv
+2.4  relays.csv
+---------------
 
 The relays.csv file contains SHA-1 hashes of identity fingerprints of
 normal relays.  If a bridge uses the same identity key that it also used
@@ -176,4 +206,72 @@ The columns in relays.csv are:
 
  - consensus: ISO-formatted consensus publication time
  - fingerprint: Hex-formatted SHA-1 hash of identity fingerprint
+
+
+3  Working with the new data formats
+------------------------------------
+
+The new data formats are plain CSV files that can be processed by many
+statistics tools, including R.  For some analyses it may be sufficient to
+evaluate a single CSV file and be done.  But most analyses would require
+combining two or more of the CSV files.
+
+See analysis.R for an example analysis.  Run it like this:
+
+  $ R --slave -f analysis.R
+
+Below is the output in case you don't have R installed but want to know
+what kind of results to expect:
+
+Reading descriptors.csv.
+Read 97394 rows from descriptors.csv.
+28429 of these rows have bridge stats.
+Here are the first 10 rows, sorted by fingerprint and bridge stats
+interval end, and only displaying German and French users:
+                                   fingerprint      bridgestatsend de fr
+45933 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-02 11:32:47  0  0
+21782 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-02 11:33:53  0  0
+18869 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-02 11:53:07  0  0
+5182  0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-02 19:23:52  0  0
+48686 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-03 09:38:20  0  0
+33774 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-03 19:30:08  0  0
+67666 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-03 22:11:47  0  0
+31329 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-06 09:14:07  0  0
+31668 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-07 11:23:26  0  0
+16943 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-08 11:49:26  0  0
+Reading relays.csv
+Read 1606208 rows from relays.csv.
+Filtering out bridges that have been seen as relays.
+26425 descriptors remain.  Again, here are the first 10 rows, sorted by
+fingerprint and bridge stats interval end, and only displaying German
+and French users:
+                                   fingerprint      bridgestatsend de fr
+45933 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-02 11:32:47  0  0
+21782 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-02 11:33:53  0  0
+18869 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-02 11:53:07  0  0
+5182  0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-02 19:23:52  0  0
+48686 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-03 09:38:20  0  0
+33774 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-03 19:30:08  0  0
+67666 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-03 22:11:47  0  0
+31329 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-06 09:14:07  0  0
+31668 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-07 11:23:26  0  0
+16943 0008b101e9dcbcfa11ba638b86d71afdef54a4b5 2011-01-08 11:49:26  0  0
+Reading assignments.csv
+Read 778561 rows from assignments.csv.
+Filtering out bridges that have not been distributed via email.
+14684 descriptors remain.  Again, Here are the first 10 rows, sorted by
+fingerprint and bridge stats interval end, and only displaying German
+and French users:
+                                   fingerprint      bridgestatsend de fr
+66036 003817328def77002ff276a9af54bc4326a86d1c 2011-01-01 05:53:12 32  8
+61891 003817328def77002ff276a9af54bc4326a86d1c 2011-01-01 11:46:58 32  8
+54391 003817328def77002ff276a9af54bc4326a86d1c 2011-01-02 03:32:30 40  8
+73165 003817328def77002ff276a9af54bc4326a86d1c 2011-01-02 21:33:14 48  8
+82707 003817328def77002ff276a9af54bc4326a86d1c 2011-01-03 03:47:23 48  8
+5300  003817328def77002ff276a9af54bc4326a86d1c 2011-01-03 21:48:10 32  8
+23940 003817328def77002ff276a9af54bc4326a86d1c 2011-01-04 15:48:56 32  8
+2706  003817328def77002ff276a9af54bc4326a86d1c 2011-01-05 09:49:39 40  8
+17273 003817328def77002ff276a9af54bc4326a86d1c 2011-01-06 03:50:23 24  8
+72380 003817328def77002ff276a9af54bc4326a86d1c 2011-01-06 21:51:09 24  8
+Terminating.
 

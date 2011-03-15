@@ -84,7 +84,7 @@ public class ProcessSanitizedBridges {
             String fingerprint = Hex.encodeHexString(Base64.decodeBase64(
                 parts[2] + "="));
             String descriptor = Hex.encodeHexString(Base64.decodeBase64(
-                parts[2] + "="));
+                parts[3] + "="));
             String published = parts[4] + " " + parts[5];
             String address = parts[6];
             String orPort = parts[7];
