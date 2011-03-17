@@ -1,0 +1,30 @@
+Graphing torperf results and bandwidth authority failures
+=========================================================
+
+ - Download the consensus and vote tarballs from the metrics website and
+   extract them locally.  You'll want the tarballs since October 2009.
+
+ - Run grep to extract the relevant pieces and save Java the bulk of the
+   parsing work.
+
+   $ grep -Rm1 "Measured" votes-20* | cut -c 18-36 | sort | uniq -c
+     > votes-measured
+
+   $ grep -Rm1 "^params " consensuses-20* > consensus-params
+
+ - Download the Torperf statistics from the metrics website here:
+
+   https://metrics.torproject.org/csv/torperf.csv
+
+ - Compile and run Eval.java
+
+   $ javac Eval.java && java Eval
+
+ - You should find two files bwscanner-failures.csv and torperf-stats.csv
+   in this directory.
+
+ - Run the R code to draw the graph of Torperf results and bwscanner
+   outages.  The result will be a new file torperf-bwscanners.pdf.
+
+   $ R --slave -f torperf-bwscanners.R
+
