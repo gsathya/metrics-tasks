@@ -1,0 +1,6 @@
+*.class
+descriptors/
+*.pdf
+*.csv
+*.jar
+
