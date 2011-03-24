@@ -1,0 +1,12 @@
+Code to create a graph on "Uptimes of bridges that were running Jan 2,
+2011, 00:00:00 UTC":
+
+ - Generate assignments.csv and statuses.csv using the #2680 code and put
+   them in this directory.
+
+ - Compile and run the Java class:
+   $ javac StillRunning.java && java StillRunning
+
+ - Run the R code (note that this may take a few minutes!):
+   $ R --slave -f still-running-bridges.R
+
