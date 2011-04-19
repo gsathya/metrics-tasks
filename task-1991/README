@@ -1,0 +1,46 @@
+Visualize influence of guard bandwidth on Torperf completion time
+
+ - Generate one or more .mergedata files, e.g.,
+
+   $ ./consolidate_stats.py 50kb.data 50kb.extradata
+     regular80cbt-50kb.mergedata
+
+ - Extract consensus bandwidths of all relays and write them to a CSV
+   file.  The easiest way to do this is to run an SQL query on the metrics
+   database:
+
+   => \f ','
+   => \a
+   => \t
+   => \o bandwidths-sql.csv
+   => SELECT fingerprint, validafter, bandwidth FROM statusentry
+      WHERE validafter >= '2011-02-23' ORDER BY validafter, fingerprint;
+   => \o
+   => \t
+   => \a
+
+ - Merge the .mergedata file with the consensus bandwidth file to have a
+   single CSV file that contains Torperf completion times and Guard node
+   consensus bandwidths and ranks:
+
+   $ javac Merge.java && java -Xmx2048m Merge
+
+   The result is a file torperf-guard-bandwidths-ranks.csv.
+
+ - Aggregate the results to obtain percentiles:
+
+   $ javac Aggregate.java && java Aggregate
+
+   The result are two files torperf-guard-bandwidth-quantiles.csv and
+   torperf-guard-rank-quantiles.csv.
+
+ - Plot Torperf results by guard consensus bandwidth and ranks for each
+   guard selection strategy separately:
+
+   $ R --slave -f torperf-guard-bandwidths-ranks.R
+
+ - Plot Torperf results by guard consensus bandwidth and ranks for all
+   guard selection strategies and including quantile lines:
+
+   $ R --slave -f torperf-guard-quantiles.R
+
