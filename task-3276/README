@@ -1,0 +1,25 @@
+Find out onion key lifetime from server descriptors:
+
+First, parse fingerprints, publication times, and onion keys from server
+descriptors to make subsequent analyses faster:
+
+  $ javac ParseServerDescriptors.java
+  $ java ParseServerDescriptors server-descriptor/2011/05 \
+      > parsed-2011-05.csv
+
+Sort the output by fingerprint, then by publication time:
+
+  $ sort parsed-2011-05.csv > sorted-2011-05.csv
+
+Extract first and last publication times of onion keys that we saw at
+least twice.  Also include the fingerprint and calculate the number of
+seconds between the two timestamps:
+
+  $ javac ExtractOnionKeyLifetimes.java
+  $ java ExtractOnionKeyLifetimes.java > onion-key-lifetimes.csv
+
+Plot an ECDF and print out the onion keys that were in use for at least 10
+days:
+
+  $ R --slave -f onion-key-lifetimes.R
+
