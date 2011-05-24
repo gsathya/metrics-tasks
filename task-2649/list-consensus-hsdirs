@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# This script must be run as ./list-consensus-hsdirs , by
+# generate-consensus-hsdir-lists.
+
+consensus_file="$1"
+
+
+consensus_basename="$(basename "$consensus_file" -consensus )"
+hsdir_list_dir="out/consensus-hsdir-lists/$(echo "$consensus_basename" |cut -f 1-2 -d - )"
+hsdir_list_name="$hsdir_list_dir/$consensus_basename"
+
+
+mkdir -p "$hsdir_list_dir"
+
+awk -f list-consensus-hsdirs.awk <"$consensus_archive_dir/$consensus_file" >"$hsdir_list_name"
+
+echo "generated HSDir list $consensus_basename"
+
