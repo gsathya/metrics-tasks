@@ -1,0 +1,22 @@
+Analyze how long after earning the HSDir flag relays go away
+
+First, extract status entries with the HSDir flag set from the metrics
+database:
+
+  tordir=> \o hsdir.csv
+  tordir=> SELECT validafter, fingerprint FROM statusentry
+           WHERE validafter >= '2010-05-01' AND validafter < '2011-05-01'
+           AND ishsdir IS TRUE ORDER BY validafter, fingerprint;
+  tordir=> \o
+
+Next, calculate continuous sessions of a relay having the HSDir flag.  For
+each such session, extract the fingerprint and the first and last time it
+was listed in the network status with the HSDir flag.  Also calculate the
+session duration in seconds:
+
+  $ javac EvaluateHsDirs.java && java EvaluateHsDirs
+
+Plot an ECDF of the session length:
+
+  $ R --slave -f hsdir-sessions.R
+
