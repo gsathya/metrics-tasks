@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -e
 
 # This script must be run as ./list-consensus-hsdirs , by
 # generate-consensus-hsdir-lists.
