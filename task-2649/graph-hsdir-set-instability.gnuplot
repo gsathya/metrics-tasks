@@ -1,6 +1,7 @@
 
 set xdata time
 set timefmt "%Y-%m-%d-%H-%M-%S"
+set format x "%Y-%m"
 set xrange ["2011-01-01-00-00-00":]
 set yrange [0:1]
 
