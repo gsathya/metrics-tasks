@@ -1,0 +1,28 @@
+#!/bin/sh -e
+
+# This script must be run as ./generate-consensus-hsdir-lists .
+
+# This script will die horribly later if $consensus_archive_dir
+# expands to a string containing a shell metacharacter, so don't try
+# to not die now.
+test -z $consensus_archive_dir &&
+export consensus_archive_dir=/usr/local/opt/tor-consensuses
+
+
+mkdir -m 0700 -p dev/
+for i in 0 1 2 3 ;do mkfifo -m 0600 dev/in$i dev/out$i || true ;done
+
+mkdir -p out/consensus-hsdir-lists
+
+
+(cd "$consensus_archive_dir" ;find consensuses-* -type f -print ) |
+sed -e 's|^|./list-consensus-hsdirs |' |
+linedemux --fname -- dev/in0 dev/in1 dev/in2 dev/in3 &
+
+sh <dev/in0 >dev/out0 &
+sh <dev/in1 >dev/out1 &
+sh <dev/in2 >dev/out2 &
+sh <dev/in3 >dev/out3 &
+
+linemux --fname -- dev/out0 dev/out1 dev/out2 dev/out3
+

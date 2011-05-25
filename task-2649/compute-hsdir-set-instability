@@ -1,0 +1,12 @@
+#!/bin/sh -e
+
+# This script must be run as ./compute-hsdir-set-instability .
+
+
+find out/consensus-hsdir-lists -type f -print |
+sort |
+tclsh8.5 compute-hsdir-set-instability.tcl |
+tee out/hsdir-set-instability |
+sed -e 's/$/                    /' |
+tr '\n' '\r'
+

@@ -1,0 +1,31 @@
+
+Purpose:
+
+  These scripts are intended to determine how unstable the set of
+  relays with the HSDir flag is.
+
+Dependencies:
+
+  You will need linedemux and linemux installed.  See branch parrun in
+  https://gitweb.torproject.org/rransom/tor-utils.git for now.
+
+  You will also need Tcl 8.5.9 and gnuplot 4.4.0 installed.
+
+Instructions:
+
+  First, unpack all of the v3 consensus archive tarballs you want to
+  analyze into a single directory, and set the consensus_archive_dir
+  environment variable to point to that directory.
+
+  Then run:
+
+    ./generate-consensus-hsdir-lists
+    ./compute-hsdir-set-instability
+    ./graph-hsdir-set-instability
+
+Bugs:
+
+  This code compares each consensus with each of the four following
+  consensuses; it should compare each hour's consensus with the
+  consensuses in effect in each of the four following hours.
+
