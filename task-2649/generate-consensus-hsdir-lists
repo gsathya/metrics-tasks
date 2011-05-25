@@ -10,7 +10,7 @@ export consensus_archive_dir=/usr/local/opt/tor-consensuses
 
 
 mkdir -m 0700 -p dev/
-for i in 0 1 2 3 ;do mkfifo -m 0600 dev/in$i dev/out$i ;done
+for i in 0 1 2 3 ;do mkfifo -m 0600 dev/in$i dev/out$i || true ;done
 
 mkdir -p out/consensus-hsdir-lists
 
