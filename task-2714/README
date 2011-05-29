@@ -22,6 +22,7 @@ Instructions:
     ./generate-consensus-hsdir-lists
     ./compute-hsdir-set-instability
     ./graph-hsdir-set-instability
+    ./graph-hsdir-set-absolute-instability
 
 Bugs:
 

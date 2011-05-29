@@ -1,0 +1,9 @@
+#!/bin/sh -e
+
+# This script must be run as ./graph-hsdir-set-instability .
+
+gnuplot >out/hsdir-set-absolute-instability-graph.ps <<EOF
+set terminal postscript color solid
+load "graph-hsdir-set-absolute-instability.gnuplot"
+EOF
+
