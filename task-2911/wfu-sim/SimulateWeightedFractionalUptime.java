@@ -114,6 +114,10 @@ public class SimulateWeightedFractionalUptime {
 
         /* Increment weighted uptime for all running relays by 3600
          * seconds. */
+        /* TODO 3600 seconds is only correct if we're not missing a
+         * consensus.  We could be more precise here, but it will probably
+         * not affect results significantly, if at all.  The same applies
+         * to the 3600 seconds constants below. */
         for (String fingerprint : fingerprints) {
           if (!knownRelays.containsKey(fingerprint)) {
             knownRelays.put(fingerprint, new long[] { 3600L, 0L });

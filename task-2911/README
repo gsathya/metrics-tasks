@@ -4,7 +4,76 @@ Tech report: An Analysis of Tor Relay Stability
 Simulation of MTBF requirements
 -------------------------------
 
-Change to the MTBF simulation directory:
+When simulating MTBF requirements, we parse status entries and server
+descriptor parts.  For every data point we care about the valid-after time
+of the consensus, the relay fingerprint, and whether the relay had an
+uptime of 3599 seconds or less when the consensus was published.  The last
+part is important to detect cases when a relay was contained in two
+subsequent consensuses, but was restarted in the intervening time.  We
+rely on the uptime as reported in the server descriptor and decide whether
+the relay was restarted by calculating whether the following condition
+holds:
+
+  restarted == valid-after - published + uptime < 3600
+
+In the first simulation step we parse the data in reverse order from last
+consensus to first.  In this step we only care about time until next
+failure.
+
+For every relay we see in a consensus we look up whether we also saw it in
+the subsequently published consensus (that we parsed before).  If we did
+not see the relay before, we add it to our history with a time until
+failure of 0 seconds.  If we did see the relay, we add the seconds elapsed
+between the two consensuses to the relay's time until next failure in our
+history.  We then write the times until next failure from our history to
+disk for the second simulation step below.  Before processing the next
+consensus we remove all relays that have not been running in this
+consensus or that have been restarted before this consensus from our
+history.
+
+In the second simulation step we parse the data again, but in forward
+order from first to last consensus.  This time we're interested in the
+mean time between failure for all running relays.
+
+We keep a history of three variables per relay to calculate its MTBF:
+weighted run length, total run weights, and current run length.  The first
+two variables are used to track past uptime sessions whereas the third
+variable tracks the current uptime session if a relay is currently
+running.
+
+For every relay seen in a consensus we distinguish four cases:
+
+  1) the relay is still running,
+  2) the relay is still running but has been restarted,
+  3) the relay has been newly started in this consensus, and
+  4) the relay has left or failed in this consensus.
+
+In case 1 we add the seconds elapsed since the last consensus to the
+relay's current run length.
+
+In case 2 we add the current run length to the weighted run length,
+increment the total run weights by 1, and re-initialize the current run
+length with the seconds elapsed since the last consensus.
+
+In case 3 we initialize the current run length with the seconds elapsed
+since the last consensus.
+
+In case 4 we add the current run length to the weighted run length,
+increment the total run weights by 1, and set the current run length to 0.
+
+Once we're done with processing a consensus, we calculate MTBFs for all
+running relays.
+
+         weighted run length + current run length
+  MTBF = ----------------------------------------
+                   total run weights + 1
+
+We sort relays by MTBF in descending order, create subsets containing the
+30%, 40%, ..., 70% relays with highest MTBF, and look up mean time until
+failure for these relays.  We then write the mean value, 85th, 90th, and
+95th percentile to disk as simulation results.
+
+To run the simulation, start by changing to the MTBF simulation directory:
 
   $ cd mtbf-sim/
 
@@ -63,7 +132,29 @@ directory to include it in the report:
 Simulation of WFU requirements
 ------------------------------
 
-Change to the WFU simulation directory:
+In the first simulation step we parse consensuses in reverse order to
+calculate future WFU for every relay and for every published consensus.
+We keep a relay history with two values for each relay: weighted uptime
+and total weighted time.
+
+When parsing a consensus, we add 3600 seconds to the weighted uptime
+variable of every running relay and 3600 seconds to the total weighted
+time of all relays in our history.  We then write future WFUs for all
+known relays to disk by dividing weighted uptime by total weighted time.
+
+Every 12 hours, we multiply the weighted uptimes and total weighted times
+of all relays in our history by 0.95.  If the quotiend of the two
+variables drops below 0.0001, we remove a relay from our history.
+
+In the second simulation step we parse the consensuses again, but in
+forward order.  The history and WFU calculation is exactly the same as in
+the first simulation step.
+
+After calculating WFUs for all relays in the history, we look up the
+future WFUs for all relays meeting certain past WFU requirements and
+calculate their mean value, 85th, 90th, and 95th percentile.
+
+To run the simulation, start by changing to the WFU simulation directory:
 
   $ cd wfu-sim/
 
