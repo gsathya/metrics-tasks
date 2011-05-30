@@ -1,0 +1,9 @@
+*.class
+mtbf-sim/tunf/
+wfu-sim/fwfu/
+wfu-sim/consensuses/
+*.csv
+*.aux
+*.log
+*.pdf
+

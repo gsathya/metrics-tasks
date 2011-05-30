@@ -1,0 +1,105 @@
+Tech report: An Analysis of Tor Relay Stability
+===============================================
+
+Simulation of MTBF requirements
+-------------------------------
+
+Change to the MTBF simulation directory:
+
+  $ cd mtbf-sim/
+
+Export status entries and server descriptor parts from the metrics
+database, once in reverse and once in forward order.  Note that each file
+will be 2.2G large for roughly 2.5 years of data.  Plan for a buffer of at
+least 4 months before and after the interval to investigate:
+
+  tordir=> \o running-relays-reverse.csv
+  tordir=> SELECT statusentry.validafter,
+             statusentry.fingerprint,
+             CASE WHEN descriptor.uptime IS NULL THEN FALSE ELSE
+               statusentry.validafter - descriptor.published +
+               descriptor.uptime * '1 second'::INTERVAL <
+                 '01:00:00'::INTERVAL END AS restarted
+           FROM statusentry
+           LEFT JOIN descriptor
+           ON statusentry.descriptor = descriptor.descriptor
+           WHERE statusentry.isrunning
+           AND statusentry.validafter >= '2009-01-01 00:00:00'
+           ORDER BY statusentry.validafter DESC, statusentry.fingerprint;
+  tordir=> \o
+  tordir=> \o running-relays-forward.csv
+  tordir=> SELECT statusentry.validafter,
+             statusentry.fingerprint,
+             CASE WHEN descriptor.uptime IS NULL THEN FALSE ELSE
+               statusentry.validafter - descriptor.published +
+               descriptor.uptime * '1 second'::INTERVAL <
+                 '01:00:00'::INTERVAL END AS restarted
+           FROM statusentry
+           LEFT JOIN descriptor
+           ON statusentry.descriptor = descriptor.descriptor
+           WHERE statusentry.isrunning
+           AND statusentry.validafter >= '2009-01-01 00:00:00'
+           ORDER BY statusentry.validafter, statusentry.fingerprint;
+  tordir=> \o
+
+Run the simulation consisting of a reverse and a forward run.  The results
+of the reverse run will be stored to the tunf/ directory and will be
+re-used in subsequent simulations.  Delete the tunf/ directory to repeat
+the reverse run, too.
+
+  $ javac SimulateMeanTimeBetweenFailure.java
+  $ java SimulateMeanTimeBetweenFailure
+
+Plot the results:
+
+  $ R --slave -f mtbf-sim.R
+
+Once you're satisfied with the result, copy the graph to the parent
+directory to include it in the report:
+
+  $ cp mtbf-sim.pdf ../
+
+
+Simulation of WFU requirements
+------------------------------
+
+Change to the WFU simulation directory:
+
+  $ cd wfu-sim/
+
+Create a consensuses/ directory and put the consensus files of the
+interval to investigate plus 4+ months before and 4+ months after in it:
+
+  $ mkdir consensuses/
+  $ ln -s $extracted/consensuses-20* .
+
+Run the simulation that first parses consensuses from last to first and
+then from first to last.  The results from the reverse direction will be
+stored in the fwfu/ directory and re-used in subsequent simulations.
+Delete the fwfu/ directory to re-run both simulation parts.
+
+  $ javac SimulateWeightedFractionalUptime.java
+  $ java SimulateWeightedFractionalUptime
+
+Plot the results:
+
+  $ R --slave -f wfu-sim.R
+
+Copy the graph to the parent directory to include it in the report:
+
+  $ cp wfu-sim.pdf ../
+
+
+Compiling the report
+--------------------
+
+Copy the generated graphs to the base directory, unless you have done so
+before:
+
+  $ cp mtbf-sim/mtbf-sim.pdf .
+  $ cp wfu-sim/wfu-sim.pdf .
+
+Compile the report:
+
+  $ pdflatex report.tex
+

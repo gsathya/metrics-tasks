@@ -1,0 +1,295 @@
+\documentclass{article}
+\usepackage{url}
+\usepackage[pdftex]{graphicx}
+\usepackage{graphics}
+\usepackage{color}
+\begin{document}
+\title{An Analysis of Tor Relay Stability\\(DRAFT)}
+\author{Karsten Loesing\\{\tt karsten@torproject.org}}
+
+\maketitle
+
+\section{Introduction}
+
+The Tor network consists of 2,200 relays and 600 bridges run by
+volunteers, some of which are on dedicated servers and some on laptops or
+mobile devices.
+% TODO Look up more recent relay and bridge numbers.  -KL
+Obviously, we can expect the relays run on dedicated servers to be more
+``stable'' than those on mobile phones.
+But it is difficult to draw a line between stable and unstable relays.
+In most cases it depends on the context which relays count as stable:
+
+\begin{itemize}
+\item A stable relay that is supposed to be part of a circuit for a
+\emph{long-running stream} should not go offline during the next day.
+\item A stable relay that clients pick as \emph{entry guard} doesn't have
+to be running continuously, but should be online most of the time in the
+upcoming weeks.
+\item A stable relay that acts as \emph{hidden-service directory} should
+be part of a relay subset that mostly overlaps with the subsets 1, 2, or
+even 3 hours in the future.
+That means that the relays in this set should be stable, but also that not
+too many new relays should join the set of stable relays at once.
+\item A stable relay that clients use in a \emph{fallback consensus} that
+is already a few days or even weeks old should still be available on the
+same IP address and port.\footnote{See also proposal 146.}
+Such a relay doesn't necessarily have to run without interruption, though.
+% TODO Correctly cite proposal 146 here.  -KL
+\item A stable \emph{bridge relay} should be running on the same IP
+address a few days after a client learns about the bridge, but again,
+doesn't have to run continuously.
+\end{itemize}
+
+All these stability notions have in common that some relays or bridges are
+better suited for the described contexts than others.
+In this analysis we will look at various relay stability metrics to find
+the best suited set of relays for each context.
+The idea of this report is to use the results to optimize how the
+directory authorities assign relay flags that clients use to make path
+select decisions.
+
+For every context, we try to simulate what requirements based on past
+observations would have resulted in what relay stabilities in the near
+future.
+Generally, we'd expect that stricter requirements lead to higher
+stability.
+But every prediction contains a certain amount of randomness, so that we
+cannot tighten the requirements arbitrarily.
+Further, we want to ensure that the subset of relays identified as stable
+does not become too small.
+The reason is that there should be some diversity, so that not a few
+operators can aim at running most relays used in a given context.
+In some cases, the stable relays also need to provide sufficient bandwidth
+to the network in order not to become a performance bottleneck.
+We are going into more details about the requirements when looking into
+the separate analyses in the sections below.
+
+The analysis data and tools are available on the Tor metrics website at
+\url{https://metrics.torproject.org/}.\footnote{Or rather, will be made
+available.}
+
+\section{Choosing relays for long-lived streams}
+\label{sec:mtbf-sim}
+
+Whenever clients request Tor to open a long-lived stream, Tor should try
+to pick only those relays for the circuit that are not likely to disappear
+shortly after.
+If only a single relay in the circuit fails, the stream collapses and a
+new circuit needs to be built.
+Depending on how well the application handles connection failures this may
+impact usability significantly.
+
+In order to declare some relays as more useful for long-lived streams, the
+directory authorities track uptime sessions of all relays over time.
+Based on this history, they calculate the \emph{weighted mean time between
+failure (WMTBF)} for each relay.
+The MTBF part simply measures the average uptime between a relay showing
+up in the Tor network and either leaving or failing.
+In the weighted form of this metric, which is used here, older sessions
+are weighted to count less.
+The directory authorities assign the \texttt{Stable} flag to the 50~\% of
+relays with the highest WMTBF.
+
+In this simulation we want to find out how useful the WMTBF metric is for
+predicting future stability and how stability would be affected when
+declaring more or less than 50~\% of the relays as stable.
+The metric we chose for evaluating how stable a relay is is the \emph{time
+until next failure}.
+When running a simulation we determine the time until 10~\% of the
+``stable'' relays have failed.
+Under the (grossly simplified) assumption that relays are chosen
+uniformly, $1 - 0.9^3 = 27.1~\%$ of streams using relays from this set
+would have failed up to this point.
+
+\begin{figure}[t]
+\includegraphics[width=\textwidth]{mtbf-sim.pdf}
+\caption{Impact of assigning the \texttt{Stable} flag to a given fraction
+of relays on the actual required WMTBF ($x$ axis) and on the time
+until 10~\% of relays or 27.1~\% of streams have failed ($y$ axis)}
+\label{fig:mtbf-sim}
+\end{figure}
+
+Figure~\ref{fig:mtbf-sim} shows the analysis results for assigning the
+\texttt{Stable} flag to fractions of relays between 30~\% and 70~\% in a
+path plot.
+This path plot shows the effect of choosing a different fraction of
+relays on the actual required WMTBF value on the $x$ axis and on the
+resulting time until 10~\% of relays have failed on the $y$ axis.
+Two data points adjacent in time are connected by a line, forming a path.
+
+The results indicate a somewhat linear relation between required WMTBF and
+time until failure, which is as expected.
+The time until 10~\% of relays have failed in the default case of having
+50~\% stable relays is somewhere between 12 and 48 hours.
+If the directory authorities assigned the \texttt{Stable} flag to 60~\% or
+even 70~\% of all relays, this time would go down to on average 24 or 12
+hours.
+Reducing the set to only 40~\% or 30\% of relays would increase the time
+until failure to 36 or even 48 hours on average.
+
+\subsubsection*{Next steps}
+
+{\it
+\begin{itemize}
+\item What's the desired stability goal here?
+\item What other requirements (bandwidth) should go into the simulation?
+\end{itemize}
+}
+
+\section{Picking stable entry guards}
+
+Clients pick a set of entry guards as fixed entry points into the Tor
+network.
+Optimally, clients should be able to stick with their choice for a few
+weeks.
+While it is not required for all their entry guards to be running all the
+time, at least a subset of them should be running, or the client needs to
+pick a new set.
+
+Tor's metric for deciding which relays are stable enough to be entry
+guards is \emph{weighted fractional uptime (WFU)}.
+WFU measures the fraction of uptime of a relay in the past with older
+observations weighted to count less.
+The assumption is that a relay that was available most of the time in the
+past will also be available most of the time in the future.
+
+In a first analysis we simulate the effect of varying the requirements for
+becoming an entry guard on the average relay stability in the future.
+We measure future stability by using the same WFU metric, but for uptime
+in the future.
+We similarly weight observations farther in the future less than
+observations in the near future.
+We then simulate different pre-defined required WFUs between $90~\%$ and
+$99.9~\%$ and calculate what the mean future WFUs would be.
+
+\begin{figure}[t]
+\includegraphics[width=\textwidth]{wfu-sim.pdf}
+\caption{Impact of different required WFU on the mean empirical future WFU
+and fraction of potential entry guards}
+\label{fig:wfu-sim}
+\end{figure}
+
+Figure~\ref{fig:wfu-sim} shows the analysis results in a path plot similar
+to the one in Section~\ref{sec:mtbf-sim}.
+This path plot shows the effect of varying the WFU requirement, displayed
+as different line colors, on the fraction of relays meeting this
+requirement on the $x$ axis and on the WFU in the future on the $y$ axis.
+Two data points adjacent in time are connected by a line, forming a path.
+
+In this graph we can see that the majority of data points for the default
+required WFU of 98~\% falls in a future WFU range of 94~\% to 96\% with
+the smallest WFU being no less than 89~\%.
+In most cases, the fraction of relays meeting the default WFU requirement
+is between 40~\% and 50~\%.
+
+If the WFU requirement is relaxed to 95~\% or even 90~\%, the WFU in the
+future decreases slightly towards around 94~\% to 95~\% for most cases.
+At first sight it may seem surprising that a past WFU of 90~\% leads to
+a future WFU of 94~\%, but it makes sense, because the past WFU is a
+required minimum whereas the future WFU is a mean value of all relays
+meeting the requirement.
+Another effect of relaxing the required WFU is that the fraction of relays
+meeting the requirement increases from 50~\% to almost 66~\%.
+
+Interestingly, when tightening the requirement to a WFU value of 99~\% or
+even 99.9~\%, the future WFU does not increase significantly, if at all.
+To the contrary, the future WFU of relays meeting the 99.9~\% requirement
+drops to a range of 91~\% to 94~\% for quite a while.
+A likely explanation for this effect is that the fraction of relays
+meeting these high requirements is only 15~\%.
+While these 15~\% of relays may have had a very high uptime in the past,
+failure of only a few of these relays ruin the WFU metric in the future.
+
+A cautious conclusion of this analysis could be that, if the goal is to
+increase the number of \texttt{Guard} relays, reducing the required WFU to
+95~\% or even 90~\% wouldn't impact relay stability by too much.
+Conversely, increasing the required WFU beyond the current value of 98~\%
+doesn't make much sense and might even negatively affect relay stability.
+
+\subsubsection*{Next steps}
+
+{\it
+\begin{itemize}
+\item Tor penalizes relays that change their IP address or port by ending
+the running uptime session and starting a new uptime session.  This
+reduces both WFU and MTBF.  The simulation doesn't take this into account
+yet.  Should it?
+\item Add the bandwidth requirements to the simulation.  The current
+simulation doesn't make any assumptions about relay bandwidth when
+assigning \texttt{Guard} flags.  Which bandwidth value would we use here?
+\item Add another graph similar to Figure~\ref{fig:wfu-sim}, but replace
+the ``Fraction of relays meeting WFU requirement'' on the \emph{x} axis
+with the ``Fraction of \emph{bandwidth} of relays meeting WFU
+requirement.''
+After all, we're interested in having enough bandwidth capacity for the
+entry guard position, not (only) in having enough distinct relays.
+Which bandwidth value would we use here?
+\item Roger suggests to come up with a better metric than ``WFU since we
+first saw a relay.''
+He says ``it seems wrong to make something that we saw earlier have a
+worse WFU than something we saw later, even if they've had identical
+uptimes in that second period.''
+What would be good candidate metrics?
+\item Ponder finding another metric than WFU for future observations.  In
+particular, with the current WFU parameters of $0.95$ and $12$ hours, the
+WFU reaches up to 4 months into the future.  It seems useful to weight
+uptime in the near future higher than uptime in the farther future, but
+maybe we should use parameters to limit the interval to $1$ or $2$ months.
+\end{itemize}
+}
+
+\section{Forming stable hidden-service directory sets}
+
+{\it
+In this section we should evaluate the current requirements for getting
+the \texttt{HSDir} flag.
+Also, what happened to the number of relays with the \texttt{HSDir} flag
+in August 2010?
+}
+
+\section{Selecting stable relays for a fallback consensus}
+
+{\it
+Is the concept of a fallback consensus still worth considering?
+If so, we should analyze how to identify those relays that are most likely
+to be around and reachable under the same IP address.
+The result of this analysis could lead to adding a new \texttt{Longterm}
+(or \texttt{Fallback}?) flag as suggested in proposal 146.
+% TODO Correctly cite proposal 146 here.  -KL
+Maybe the analysis of bridges on stable IP addresses should come first,
+though.
+}
+
+\section{Distributing bridges with stable IP addresses}
+
+{\it
+A possible outcome of this analysis could be to add a new flag
+\texttt{StableAddress} (similar to the \texttt{Longterm} flag from the
+previous section) to bridge network statuses and to change BridgeDB to
+include at least one bridge with this flag in its results.
+One of the challenges of this analysis will be to connect sanitized bridge
+descriptors from two months with each other.
+The sanitized IP addresses of two bridges in two months do not match,
+because we're using a new secret key as input to the hash function every
+month.
+We might be able to correlate the descriptors of running bridges via their
+descriptor publication times or bridge statistics.
+But if that fails, we'll have to run the analysis with only 1 month of
+data at a time.
+}
+
+\section{Discussion and future work}
+
+The approach taken in this analysis was to select relays that are most
+stable in a given context based on their history.
+A different angle to obtain higher relay stability might be to identify
+what properties of a relay have a positive or negative impact on its
+stability.
+For example, relays running a given operating system or given Tor software
+version might have a higher stability than others.
+Possible consequences could be to facilitate setting up relays on a given
+operating system or to improve the upgrade process of the Tor software.
+
+\end{document}
+
