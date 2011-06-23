@@ -1,0 +1,20 @@
+Ticket: Find out why our user graphs have huge spikes in Q2/2011
+================================================================
+
+1. Plot single variables of daily user estimate
+
+- reported directory requests
+- ratio of written directory bytes of the directory mirrors reporting
+  directory requests compared to all written directory bytes
+- daily users
+
+On a machine with the metrics database from metrics-web installed, edit
+and run daily-users.R.
+
+  $ R --slave -f daily-users.R
+
+
+2. Plot directory bytes estimate
+
+(TODO)
+
