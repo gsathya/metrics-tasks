@@ -16,5 +16,5 @@ and run daily-users.R.
 
 2. Plot directory bytes estimate
 
-(TODO)
+  $ R --slave -f dir-bytes-estimate.R
 
