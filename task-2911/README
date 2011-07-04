@@ -1,196 +1,143 @@
 Tech report: An Analysis of Tor Relay Stability
 ===============================================
 
-Simulation of MTBF requirements
--------------------------------
+We developed a simulator for the tech report "An Analysis of Tor Relay
+Stability" that varies the requirements for assigning Stable and Guard
+flags to relays and evaluates how useful these assignments are.  In this
+README we describe how to use the simulator to re-run and possibly modify
+our analysis.
 
-When simulating MTBF requirements, we parse status entries and server
-descriptor parts.  For every data point we care about the valid-after time
-of the consensus, the relay fingerprint, and whether the relay had an
-uptime of 3599 seconds or less when the consensus was published.  The last
-part is important to detect cases when a relay was contained in two
-subsequent consensuses, but was restarted in the intervening time.  We
-rely on the uptime as reported in the server descriptor and decide whether
-the relay was restarted by calculating whether the following condition
-holds:
+First, download the comma-separated value file containing extracted status
+entries and server descriptors parts from the metrics database.  The file
+is called running-relays-reverse.csv and contains lines like the
+following:
 
-  restarted == valid-after - published + uptime < 3600
+  2011-06-30 23:00:00,0089102aa16208d991dc36efafd5cf13b35aa707,
+      f,f,f,193581,1148763136
 
-In the first simulation step we parse the data in reverse order from last
-consensus to first.  In this step we only care about time until next
-failure.
+The columns are:
 
-For every relay we see in a consensus we look up whether we also saw it in
-the subsequently published consensus (that we parsed before).  If we did
-not see the relay before, we add it to our history with a time until
-failure of 0 seconds.  If we did see the relay, we add the seconds elapsed
-between the two consensuses to the relay's time until next failure in our
-history.  We then write the times until next failure from our history to
-disk for the second simulation step below.  Before processing the next
-consensus we remove all relays that have not been running in this
-consensus or that have been restarted before this consensus from our
-history.
+ - consensus valid-after time
+ - relay fingerprint
+ - whether the relay was restarted in the last hour (t/f)
+ - whether the relay got the Stable flag assigned (t/f)
+ - whether the relay got the Guard flag assigned (t/f)
+ - advertised bandwidth in bytes per day
+ - written bytes per day
 
-In the second simulation step we parse the data again, but in forward
-order from first to last consensus.  This time we're interested in the
-mean time between failure for all running relays.
+If you don't have this file or want to generate your own file, you can
+export status entries and server descriptor parts from the metrics
+database.  Be sure to plan for a buffer of at least 4 months (better: 6
+months) before and after the interval to investigate.  The psql commands
+and SELECT statement for extracting these data are as follows:
 
-We keep a history of three variables per relay to calculate its MTBF:
-weighted run length, total run weights, and current run length.  The first
-two variables are used to track past uptime sessions whereas the third
-variable tracks the current uptime session if a relay is currently
-running.
-
-For every relay seen in a consensus we distinguish four cases:
-
-  1) the relay is still running,
-  2) the relay is still running but has been restarted,
-  3) the relay has been newly started in this consensus, and
-  4) the relay has left or failed in this consensus.
-
-In case 1 we add the seconds elapsed since the last consensus to the
-relay's current run length.
-
-In case 2 we add the current run length to the weighted run length,
-increment the total run weights by 1, and re-initialize the current run
-length with the seconds elapsed since the last consensus.
-
-In case 3 we initialize the current run length with the seconds elapsed
-since the last consensus.
-
-In case 4 we add the current run length to the weighted run length,
-increment the total run weights by 1, and set the current run length to 0.
-
-Once we're done with processing a consensus, we calculate MTBFs for all
-running relays.
-
-         weighted run length + current run length
-  MTBF = ----------------------------------------
-                   total run weights + 1
-
-We sort relays by MTBF in descending order, create subsets containing the
-30%, 40%, ..., 70% relays with highest MTBF, and look up mean time until
-failure for these relays.  We then write the mean value, 85th, 90th, and
-95th percentile to disk as simulation results.
-
-To run the simulation, start by changing to the MTBF simulation directory:
-
-  $ cd mtbf-sim/
-
-Export status entries and server descriptor parts from the metrics
-database, once in reverse and once in forward order.  Note that each file
-will be 2.2G large for roughly 2.5 years of data.  Plan for a buffer of at
-least 4 months before and after the interval to investigate:
-
+  tordir=> \f ','
+  tordir=> \a
+  tordir=> \t
   tordir=> \o running-relays-reverse.csv
   tordir=> SELECT statusentry.validafter,
              statusentry.fingerprint,
              CASE WHEN descriptor.uptime IS NULL THEN FALSE ELSE
                statusentry.validafter - descriptor.published +
                descriptor.uptime * '1 second'::INTERVAL <
-                 '01:00:00'::INTERVAL END AS restarted
+                 '01:00:00'::INTERVAL END AS restarted,
+             statusentry.isstable,
+             statusentry.isguard,
+             LEAST(descriptor.bandwidthavg, descriptor.bandwidthobserved)
+               AS bwadvertised,
+             bwhist.written_sum AS writtensum
            FROM statusentry
            LEFT JOIN descriptor
            ON statusentry.descriptor = descriptor.descriptor
+           LEFT JOIN bwhist
+           ON DATE(statusentry.validafter) = bwhist.date
+           AND statusentry.fingerprint = bwhist.fingerprint
            WHERE statusentry.isrunning
-           AND statusentry.validafter >= '2009-01-01 00:00:00'
+           AND statusentry.validafter >= '2010-01-01 00:00:00'
+           AND statusentry.validafter < '2011-07-01 00:00:00'
            ORDER BY statusentry.validafter DESC, statusentry.fingerprint;
   tordir=> \o
-  tordir=> \o running-relays-forward.csv
-  tordir=> SELECT statusentry.validafter,
-             statusentry.fingerprint,
-             CASE WHEN descriptor.uptime IS NULL THEN FALSE ELSE
-               statusentry.validafter - descriptor.published +
-               descriptor.uptime * '1 second'::INTERVAL <
-                 '01:00:00'::INTERVAL END AS restarted
-           FROM statusentry
-           LEFT JOIN descriptor
-           ON statusentry.descriptor = descriptor.descriptor
-           WHERE statusentry.isrunning
-           AND statusentry.validafter >= '2009-01-01 00:00:00'
-           ORDER BY statusentry.validafter, statusentry.fingerprint;
-  tordir=> \o
+  tordir=> \q
+
+The simulator needs to parse the file in forward and in reverse direction.
+The easiest way to implement this is to reverse the file using tac:
+
+  $ tac running-relays-reverse.csv > running-relays-foward.csv
 
 Run the simulation consisting of a reverse and a forward run.  The results
-of the reverse run will be stored to the tunf/ directory and will be
-re-used in subsequent simulations.  Delete the tunf/ directory to repeat
-the reverse run, too.
+of the reverse run will be stored to the future-stability/ directory and
+will be re-used in subsequent simulations.  Delete or move away the
+future-stability/ directory to repeat the reverse run, too.  The execution
+can take 20--30 minutes or even more depending on your hardware.
 
-  $ javac SimulateMeanTimeBetweenFailure.java
-  $ java SimulateMeanTimeBetweenFailure
+  $ javac SimulateStableGuard.java
+  $ java SimulateStableGuard
 
-Plot the results:
+The result is a file stability.csv that contains the following columns:
 
-  $ R --slave -f mtbf-sim.R
+- time: consensus valid-after time
+- excladvbw, exclwfu, exclwt: the number of relays that did not get the
+  Guard flag assigned in the simulation which got it from the directory
+  authorities; excladvbw did not get it because of the advertised
+  bandwidth requirement, exclwfu because of the WFU requirement, and
+  exclwt because of the weighted time requirement; it's quite possible
+  that a relay did not get the Guard flag for more than one reason
+- familiar: absolute number of `familiar' relays
+- guard: absolute number of relays with the Guard flag as assigned by the
+  directory authorities
+- guardYYwfuZZadvbw: absolute number of relays with the Guard flag as
+  assigned in the simulation when using YY as the WFU percentile and ZZ as
+  the advertised bandwidth percentile
+- guardintersect, guardobserved, guardsimulated: number of relays that got
+  the Guard flag both by the directory authorities and by the simulator or
+  that only got it by one of them
+- minadvbwaZZadvbw: Minimum advertised bandwidth when using ZZ as the
+  advertised bandwidth percentile, before cutting it down to 250 KiB/s
+- minadvbwbZZadvbw: Minimum advertised bandwidth when using ZZ as the
+  advertised bandwidth percentile, after cutting it down to 250 KiB/s
+- minwfuaYYwfu: Minimum WFU when using YY as the WFU percentile, before
+  cutting it down to 0.98
+- minwfubYYwfu: Minimum WFU when using YY as the WFU percentile, after
+  cutting it down to 0.98
+- minwmtbfaXX: Minimum WMTBF when using XX as the WMTBF percentile, before
+  cutting it down to 5 days
+- minwmtbfbXX: Minimum WMTBF when using XX as the WMTBF percentile, after
+  cutting it down to 5 days
+- minwta: Minimum weighted time before cutting it down to 8 days
+- minwtb: Minimum weighted time after cutting it down to 8 days
+- mtunfXX: Mean time until next failure when using XX as the WMTBF
+  percentile
+- mwfu: Mean WFU of relays that got the Guard flag assigned by the
+  directory authorities
+- mwfuYYwfuZZadvbw: Mean WFU when using YY as the WFU percentile and ZZ as
+  the advertised bandwidth percentile
+- percWWfwb: WW-th percentile of future weighted bandwidth of relays that
+  got the Guard flag assigned by the directory authorities
+- percWWfwbYYwfuZZadvbw: WW-th percentile of future weighted bandwidth
+  when using YY as the WFU percentile and ZZ as the advertised bandwidth
+  percentile
+- percWWtunf: WW-th percentile of time until next failure of relays that
+  got the Stable flag assigned by the directory authorities
+- percWWtunfXX: WW-th percentile of time until next failure when using XX
+  as the WMTBF percentile
+- percWWwfu: WW-th percentile of WFU of relays that got the Guard flag
+  assigned by the directory authorities
+- percWWwfuYYwfuZZadvbw: WW-th percentile of WFU when using YY as the WFU
+  percentile and ZZ as the advertised bandwidth percentile
+- running: absolute number of running relays
+- stable: absolute number of relays with the Stable flag as assigned by the
+  directory authorities
+- stableXX: absolute number of relays with the Stable flag as assigned in
+  the simulation when using XX as WMTBF percentile
+- stableintersect, stableobserved, stablesimulated: number of relays that
+  got the Stable flag both by the directory authorities and by the
+  simulator or that only got it by one of them
 
-Once you're satisfied with the result, copy the graph to the parent
-directory to include it in the report:
+Plot the graphs for the tech report:
 
-  $ cp mtbf-sim.pdf ../
+  $ R --slave -f stability.R
 
-
-Simulation of WFU requirements
-------------------------------
-
-In the first simulation step we parse consensuses in reverse order to
-calculate future WFU for every relay and for every published consensus.
-We keep a relay history with two values for each relay: weighted uptime
-and total weighted time.
-
-When parsing a consensus, we add 3600 seconds to the weighted uptime
-variable of every running relay and 3600 seconds to the total weighted
-time of all relays in our history.  We then write future WFUs for all
-known relays to disk by dividing weighted uptime by total weighted time.
-
-Every 12 hours, we multiply the weighted uptimes and total weighted times
-of all relays in our history by 0.95.  If the quotiend of the two
-variables drops below 0.0001, we remove a relay from our history.
-
-In the second simulation step we parse the consensuses again, but in
-forward order.  The history and WFU calculation is exactly the same as in
-the first simulation step.
-
-After calculating WFUs for all relays in the history, we look up the
-future WFUs for all relays meeting certain past WFU requirements and
-calculate their mean value, 85th, 90th, and 95th percentile.
-
-To run the simulation, start by changing to the WFU simulation directory:
-
-  $ cd wfu-sim/
-
-Create a consensuses/ directory and put the consensus files of the
-interval to investigate plus 4+ months before and 4+ months after in it:
-
-  $ mkdir consensuses/
-  $ ln -s $extracted/consensuses-20* .
-
-Run the simulation that first parses consensuses from last to first and
-then from first to last.  The results from the reverse direction will be
-stored in the fwfu/ directory and re-used in subsequent simulations.
-Delete the fwfu/ directory to re-run both simulation parts.
-
-  $ javac SimulateWeightedFractionalUptime.java
-  $ java SimulateWeightedFractionalUptime
-
-Plot the results:
-
-  $ R --slave -f wfu-sim.R
-
-Copy the graph to the parent directory to include it in the report:
-
-  $ cp wfu-sim.pdf ../
-
-
-Compiling the report
---------------------
-
-Copy the generated graphs to the base directory, unless you have done so
-before:
-
-  $ cp mtbf-sim/mtbf-sim.pdf .
-  $ cp wfu-sim/wfu-sim.pdf .
-
-Compile the report:
+Compile the tech report:
 
   $ pdflatex report.tex
 

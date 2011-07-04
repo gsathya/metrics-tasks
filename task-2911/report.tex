@@ -4,74 +4,291 @@
 \usepackage{graphics}
 \usepackage{color}
 \begin{document}
-\title{An Analysis of Tor Relay Stability\\(DRAFT)}
+\title{An Analysis of Tor Relay Stability}
 \author{Karsten Loesing\\{\tt karsten@torproject.org}}
+\date{June 30, 2011}
 
 \maketitle
 
 \section{Introduction}
 
-The Tor network consists of 2,200 relays and 600 bridges run by
+The Tor network consists of around 2,000 relays and 500 bridges run by
 volunteers, some of which are on dedicated servers and some on laptops or
 mobile devices.
-% TODO Look up more recent relay and bridge numbers.  -KL
 Obviously, we can expect the relays run on dedicated servers to be more
 ``stable'' than those on mobile phones.
 But it is difficult to draw a line between stable and unstable relays.
 In most cases it depends on the context which relays count as stable:
 
-\begin{itemize}
+\begin{enumerate}
 \item A stable relay that is supposed to be part of a circuit for a
 \emph{long-running stream} should not go offline during the next day.
+If only 1 of typically 3 relays in a circuit goes away, the stream
+collapses and must be rebuilt.
 \item A stable relay that clients pick as \emph{entry guard} doesn't have
 to be running continuously, but should be online most of the time in the
 upcoming weeks.
+In addition to being stable, an entry guard should have reasonable
+bandwidth capacity in order not to slow down clients.
 \item A stable relay that acts as \emph{hidden-service directory} should
 be part of a relay subset that mostly overlaps with the subsets 1, 2, or
 even 3 hours in the future.
 That means that the relays in this set should be stable, but also that not
-too many new relays should join the set of stable relays at once.
-\item A stable relay that clients use in a \emph{fallback consensus} that
-is already a few days or even weeks old should still be available on the
-same IP address and port.\footnote{See also proposal 146.}
-Such a relay doesn't necessarily have to run without interruption, though.
-% TODO Correctly cite proposal 146 here.  -KL
+too many new relays should join the set at once.
+\item A stable relay that clients use in a \emph{fallback consensus}
+\cite{proposal146} that is already a few days or even weeks old should
+still be available on the same IP address and port, but
+doesn't necessarily have to run without interruption.
 \item A stable \emph{bridge relay} should be running on the same IP
-address a few days after a client learns about the bridge, but again,
-doesn't have to run continuously.
-\end{itemize}
+address a few days after a client learns about the bridge and should be
+available most of the time in the upcoming weeks.
+\end{enumerate}
 
-All these stability notions have in common that some relays or bridges are
-better suited for the described contexts than others.
-In this analysis we will look at various relay stability metrics to find
-the best suited set of relays for each context.
-The idea of this report is to use the results to optimize how the
-directory authorities assign relay flags that clients use to make path
-select decisions.
+The Tor directory authorities measure relay stability for the first three
+contexts listed above and assign the Stable, Guard, and HSDir flags that
+clients use to select relays.
+Figure~\ref{fig:relayflags} shows the number of relays with relay flags
+assigned between July and December 2010 which will be our analysis
+interval.
 
-For every context, we try to simulate what requirements based on past
-observations would have resulted in what relay stabilities in the near
-future.
-Generally, we'd expect that stricter requirements lead to higher
-stability.
-But every prediction contains a certain amount of randomness, so that we
-cannot tighten the requirements arbitrarily.
-Further, we want to ensure that the subset of relays identified as stable
-does not become too small.
-The reason is that there should be some diversity, so that not a few
-operators can aim at running most relays used in a given context.
-In some cases, the stable relays also need to provide sufficient bandwidth
-to the network in order not to become a performance bottleneck.
-We are going into more details about the requirements when looking into
-the separate analyses in the sections below.
+\begin{figure}[t]
+\includegraphics[width=\textwidth]{relayflags.pdf}
+\caption{Number of relays with relay flags Running, Stable, and Guard
+assigned by the directory authorities between July and December 2010}
+\label{fig:relayflags}
+\end{figure}
 
-The analysis data and tools are available on the Tor metrics website at
-\url{https://metrics.torproject.org/}.\footnote{Or rather, will be made
-available.}
+In this analysis, we use a simulator to resemble how the directory
+authorities assign the Stable and Guard relay flags.
+This simulator uses archived directory data to decide when a relay was
+running and when it failed or was restarted.
+We further use this simulator to calculate future stability metrics that
+help us evaluate the quality of a given relay flag assignment.
+We modify the input parameters to Tor's stability metrics to see whether
+we can improve how the directory authorities should assign relay flags.
+The analysis data and simulator used in this report are available on the
+Tor metrics website at \url{https://metrics.torproject.org/}.
+
+\section{Requirements for Stable and Guard flags}
+
+The requirements for assigning the Stable and the Guard flags are defined
+in the Tor directory protocol specification \cite{dirspec}.
+These definitions are revised here to better reflect what is implemented
+in the code:
+
+\begin{quote}
+``A router is `Stable' if it is active, and either its Weighted MTBF is at
+least the median for known active routers or its Weighted MTBF corresponds
+to at least [5] days.
+[...]
+A router is a possible `Guard' [if it is `familiar',] if its
+Weighted Fractional
+Uptime is at least the median for `familiar' active routers [or its
+Weighted Fractional Uptime is at least 98~\%], and if
+its [advertised] bandwidth is at least median [of all active routers] or
+at least 250KB/s.
+[...]
+A node is `familiar' if 1/8 of all active nodes have appeared more
+recently than it, or it has been around for [a weighted time of 8 days].''
+\end{quote}
+
+These definitions entail four requirements for assigning relay flags, one
+for the Stable flag and three for the Guard flag:
+\begin{description}
+\item[Weighted Mean Time Between Failure (WMTBF):]
+The WMTBF metric is used to track the length of continuous uptime sessions
+over time.
+The (unweighted) MTBF part measures the average uptime between a relay
+showing up in the network and either leaving or failing.
+In the weighted form of this metric, which is used here, past sessions
+are discounted by factor $0.95$ every $12$~hours.
+Current uptime sessions are not discounted, so that a WMTBF value of
+5~days can be reached after 5~days at the earliest.
+\item[Weighted Fractional Uptime (WFU):] The WFU metric measures the
+fraction of uptime of a relay in the past.
+Similar to WMTBF, WFU values are discounted by factor $0.95$ every
+$12$~hours, but in this case including the current uptime session.
+\item[Weighted Time:] The Weighted Time metric is used to calculate a
+relay's WFU and to decide whether a relay is around long enough to be
+considered `familiar.'
+The Weighted Time is discounted similar to WMTBF and WFU, so that a
+Weighted Time of 8 days can be reached after around 16 days at the
+earliest.
+\item[Advertised Bandwidth:] The Advertised Bandwidth of a relay is the
+minimum of its configured average bandwidth rate and the maximum observed
+bandwidth over any ten second period in the past day.
+It should be noted that the advertised bandwidth is self-reported by
+relays and has been misused in the past to attract more traffic than a
+relay should see.
+In theory, using the advertised bandwidth value has become discouraged
+for anything critical.
+\end{description}
+
+All four requirements have in common that they consist of a dynamic part
+that relies on the current network situation (e.g., median of all WMTBF
+values for the Stable flag) and a static part that is independent
+of other relays (e.g., WMTBF value of 5 days or higher).
+The dynamic part ensures that a certain fraction of relays get the
+Stable and Guard flags assigned even in a rather unstable network.
+The static part ensures that rather stable (or fast) relays are not denied
+the flags even when most of the other relays in the network are highly
+stable (or very fast).
+
+\section{Obtaining data for relay stability analysis}
+
+The internal data that the directory authorities use to decide whether a
+relay should get the Stable or Guard flag assigned is not publicly
+available.
+Instead, we rely on the network status consensuses and server descriptors
+that are archived and publicly available since October
+2007.
+The network status consensuses tell us which relays were available with a
+granularity of 1~hour, and the server descriptors help us figure out
+whether a relay was restarted in the 1~hour before being listed in a
+network status.
+We further learn whether a relay got the Stable and/or Guard flag assigned
+and what bandwidth it advertised and actually used for relaying data at a
+given time.
+In detail, we obtain the following data for this analysis:
+
+\begin{description}
+\item[Valid-after time:] The time when a network status consensus was
+published.
+\item[Fingerprint:] A relay's unique public key fingerprint.
+\item[Restarted:] Was a relay restarted within the last hour before the
+valid-after time based on its self-reported uptime?
+\item[Stable:] Did the directory authorities assign the Stable flag to a
+relay?
+\item[Guard:] Did the directory authorities assign the Guard flag to a
+relay?
+\item[Advertised bandwidth:] A relay's self-reported advertised bandwidth.
+\item[Bandwidth history:] How many bytes did the relay write on a given
+day?
+\end{description}
+
+The choice for using these archived data instead of, e.g., trying to
+obtain the internal relay stability data that the directory authorities
+use has a few advantages and disadvantes.
+The main disadvantage is that our data has a granularity of one hour and
+can only detect a single failure or restart within this hour.
+It's unclear which effect this lack of detail has on less stable relays.
+
+But there are a few advantages of using the archived network data:
+We have a few years of data available that we can use for the analysis.
+If we started obtaining original stability data from the directory
+authorities, we'd have to wait a few months before conducting this
+analysis.
+Also, it's still unclear whether the Tor code that assigns relay flags is
+correct, so it makes sense to use a different data basis.
+Finally, we need the directory archives anyway to evaluate how stable or
+fast a relay turned out to be after being selected.
+
+\section{Simulating current Stable/Guard assignments}
+
+The first step before varying the requirements for assigning relay flags
+is to run a simulation with the current default requirements.
+Only if we manage to come up with similar results as the directory
+authorities, we can hope that our suggested parameter changes will have
+similar effects in the real Tor network.
+
+Figure~\ref{fig:default-reqs} shows the fractions of relays that got the
+Stable and Guard flags assigned by the directory
+authorities (``observed'' lines) and in our simulation with default
+requirements (``simulated'' lines).
+Ideally, the observed lines should match the simulated lines.
+The two Guard lines overlap for about half of the observed time interval
+and the difference is always below 5~\% of running relays, which seems to
+be acceptable.
+The fraction of Guard relays in the simulation is rather stable at 28~\%
+whereas the observed fraction goes up to 33~\% for three months.
+The observed Stable line seems to be systematically 5 to 10~\% higher than
+the simulated line.
+
+\begin{figure}[t]
+\includegraphics[width=\textwidth]{default-reqs.pdf}
+\caption{Fraction of relays that got the Stable and Guard flag assigned by
+the directory authorities and in our simulation with default requirements}
+\label{fig:default-reqs}
+\end{figure}
+
+We first investigate the differences by looking in how far the sets of
+observed and simulated sets overlap.
+After all, it could be that our simulated 30~\% of Guard relays are a
+completely different subset of relays than the observed 30~\%.
+Figure~\ref{fig:diff-sim-obs} shows the absolute number of relays in the
+intersection and the sets of only observed or only simulated relays.
+This graph shows that the majority of relay assignments overlap for both
+flags.
+The sets of Stable relays that are only found in the simulation is rather
+small with around 50 relays.
+Compared to that, there are between 100 and 200 relays on average that got
+the Stable flag assigned by the directory authorities but which did not
+qualify for that flag in the simulation.
+The situation of assigned Guard flags is somewhat different.
+In July and August 2010, there are about 50 relays in the only-observed
+and only-simulated sets.
+From September 2010 on, there are hardly any relays in the only-simulated
+set, but the number of relays in the only-observed set goes up to nearly
+100.
+
+\begin{figure}[t]
+\includegraphics[width=\textwidth]{diff-sim-obs.pdf}
+\caption{Number of relays that got the Stable and Guard flag assigned by
+both the directory authorities and by our simulator or by just one of
+them}
+\label{fig:diff-sim-obs}
+\end{figure}
+
+Before accepting these deviations as a given, we take a quick look at the
+actual requirements to learn whether the dynamic or the static part of
+requirements was more relevant.
+Figure~\ref{fig:requirements} shows the dynamic parts as daily means (dark
+gray lines) and daily min-max ranges (light gray ribbons) as well as the
+static parts (dashed lines).
+The dashed lines act as a limit here: if a dynamic requirement based on
+the other relays exceeds the dashed line, the requirement is cut to the
+fixed value and the fraction of relays meeting the requirement increases.
+Whenever the dynamic requirement remains below the dashed line, the
+fraction of relays that get flags assigned should remain more or less the
+same.
+For example, the top left graph indicates that it's quite possible that
+more than 50~\% of relays got the Stable flag assigned from July
+to November, but that this fraction should have dropped to 50~\% in
+December 2010.
+However, this was not the case.
+The graph also indicates that the 250 KiB/s limit was never reached, so
+that relays were always selected based on the comparison to the advertised
+bandwidth of the other relays.
+
+\begin{figure}
+\includegraphics[width=\textwidth]{requirements.pdf}
+\caption{Simulated requirements for assigning the Stable and Guard flags}
+\label{fig:requirements}
+\end{figure}
+
+Possible reasons for deviation of simulation and actual assignments by the
+directory authorities are:
+
+\begin{enumerate}
+\item The simulator code may contain bugs.
+\item Our data with a granularity of 1~hour lack the details for detecting
+restarts and failures and thereby make it hard to observe uptime sessions
+correctly.
+\item The directory authorities have slightly different views on the
+network which then get mixed in the voting process.
+\item The implementation of relay history on the directory authorities may
+contain bugs.
+\end{enumerate}
+
+For the remainder of this analysis we will assume that the simulated
+number of Stable relays is 5 to 10~\% lower than in reality and that the
+simulation of Guard is more or less accurate.
 
 \section{Choosing relays for long-lived streams}
 \label{sec:mtbf-sim}
 
+After learning that our simulation of relay stability is at least not
+totally off, we want to take a closer look at the Stable flag.
 Whenever clients request Tor to open a long-lived stream, Tor should try
 to pick only those relays for the circuit that are not likely to disappear
 shortly after.
@@ -80,65 +297,81 @@ new circuit needs to be built.
 Depending on how well the application handles connection failures this may
 impact usability significantly.
 
-In order to declare some relays as more useful for long-lived streams, the
-directory authorities track uptime sessions of all relays over time.
-Based on this history, they calculate the \emph{weighted mean time between
-failure (WMTBF)} for each relay.
-The MTBF part simply measures the average uptime between a relay showing
-up in the Tor network and either leaving or failing.
-In the weighted form of this metric, which is used here, older sessions
-are weighted to count less.
-The directory authorities assign the \texttt{Stable} flag to the 50~\% of
-relays with the highest WMTBF.
-
-In this simulation we want to find out how useful the WMTBF metric is for
-predicting future stability and how stability would be affected when
-declaring more or less than 50~\% of the relays as stable.
-The metric we chose for evaluating how stable a relay is is the \emph{time
+The WMTBF metric as the requirement for assigning the Stable flag has
+already been discussed above.
+Now we want to find out how useful WMTBF is to predict which relays are
+not likely to leave or crash in the near future.
+In order to evaluate future relay stability we measure the \emph{time
 until next failure}.
-When running a simulation we determine the time until 10~\% of the
-``stable'' relays have failed.
+There is no need to measure more than the current uptime session length,
+and hence there is no need to weight measurements.
+For a given set of relays with the Stable flag we determine the 10th
+percentile of time until next failure.
+This is the time when 10~\% of relays have failed and 90~\% are still
+running.
 Under the (grossly simplified) assumption that relays are chosen
 uniformly, $1 - 0.9^3 = 27.1~\%$ of streams using relays from this set
-would have failed up to this point.
+would have been interrupted up to this point.
+
+The default requirement is that a relay's WMTBF is at least the median for
+known relays or at least 5 days.
+We simulate times until next failure for the 30th, 40th, 50th, 60th, and
+70th percentiles of WMTBF values in the network while leaving the fixed
+5-day constant unchanged.
+We also look up times until next failure for the set of Stable relays that
+got their flags from the directory authorities.
+Figure~\ref{fig:wmtbf-tunf-sim} shows the results.
+The artificial steps come from our limitation to measure time until next
+failure in more detail than in full hours.
+The further right a line is the higher is the time until next failure for
+the considered consensuses from July to December 2010.
 
 \begin{figure}[t]
-\includegraphics[width=\textwidth]{mtbf-sim.pdf}
-\caption{Impact of assigning the \texttt{Stable} flag to a given fraction
-of relays on the actual required WMTBF ($x$ axis) and on the time
-until 10~\% of relays or 27.1~\% of streams have failed ($y$ axis)}
-\label{fig:mtbf-sim}
+\includegraphics[width=\textwidth]{wmtbf-tunf-sim.pdf}
+\caption{Impact of changing the WMTBF percentile requirement for assigning
+the Stable flag on the expected time until next failure}
+\label{fig:wmtbf-tunf-sim}
 \end{figure}
 
-Figure~\ref{fig:mtbf-sim} shows the analysis results for assigning the
-\texttt{Stable} flag to fractions of relays between 30~\% and 70~\% in a
-path plot.
-This path plot shows the effect of choosing a different fraction of
-relays on the actual required WMTBF value on the $x$ axis and on the
-resulting time until 10~\% of relays have failed on the $y$ axis.
-Two data points adjacent in time are connected by a line, forming a path.
+The first finding that comes to mind is that the observed line is much
+farther left than the simulated 50th percentile line.
+In theory, both lines use the 50th percentile as requirement and should
+therefore have similar results.
+However, since the directory authorities assign the Stable flag to almost
+60~\% of all relays, it's likely that their overall stability is lower
+than the stability of the most stable 50~\% of all relays.
+It's unclear why observed results are even worse than those from the
+simulated 40th percentile.
+It might be that the directory authorities don't just assign the
+Stable flag to too many relays, but also to the wrong relays.
 
-The results indicate a somewhat linear relation between required WMTBF and
-time until failure, which is as expected.
-The time until 10~\% of relays have failed in the default case of having
-50~\% stable relays is somewhere between 12 and 48 hours.
-If the directory authorities assigned the \texttt{Stable} flag to 60~\% or
-even 70~\% of all relays, this time would go down to on average 24 or 12
-hours.
-Reducing the set to only 40~\% or 30\% of relays would increase the time
-until failure to 36 or even 48 hours on average.
+Apart from that, the graph shows the large influence of different WMTBF
+percentiles on relay stability.
+If we lowered the requirement to the 30th WMTBF percentile, thus assigning
+the Stable flag to at least 70~\% of all relays, the 10th percentile of
+time until next failure would be reached after 6 to 24 hours in most
+cases.
+The 40th and 50th percentile requirements move this point to 12 to 36 and
+18 to 54 hours, respectively.
+If we changed the requirement to the 60th WMTBF percentile, this point
+would only be reached after 24 to 60 hours.
+The 70th percentile requirement is not even shown in the graph, because
+this requirement is so high that the fixed 5-day constant applies in most
+cases here, making the dynamic percentile requirement meaningless.
 
-\subsubsection*{Next steps}
-
-{\it
-\begin{itemize}
-\item What's the desired stability goal here?
-\item What other requirements (bandwidth) should go into the simulation?
-\end{itemize}
-}
+As an intermediate conclusion, we could improve relay stability a lot by
+raising the WMTBF percentile requirement a bit.
+A good next step might be to find out why the directory authorities assign
+the Stable flag to 55 to 60~\% of all relays and not 50~\%.
+Of course, a higher requirement would result in fewer relays with the
+Stable flag.
+But having 40~\% of relays with that flag should still provide for enough
+diversity.
 
 \section{Picking stable entry guards}
 
+The second flag that we're going to analyze in more detail is the
+Guard flag.
 Clients pick a set of entry guards as fixed entry points into the Tor
 network.
 Optimally, clients should be able to stick with their choice for a few
@@ -147,149 +380,155 @@ While it is not required for all their entry guards to be running all the
 time, at least a subset of them should be running, or the client needs to
 pick a new set.
 
-Tor's metric for deciding which relays are stable enough to be entry
-guards is \emph{weighted fractional uptime (WFU)}.
+As discussed above, Tor's primary metric for deciding which relays are
+stable enough to be entry guards is \emph{weighted fractional uptime
+(WFU)}.
 WFU measures the fraction of uptime of a relay in the past with older
 observations weighted to count less.
 The assumption is that a relay that was available most of the time in the
 past will also be available most of the time in the future.
 
-In a first analysis we simulate the effect of varying the requirements for
-becoming an entry guard on the average relay stability in the future.
+In a first analysis we simulate the effect of varying the percentile
+requirements for becoming an entry guard on the relay stability in the
+future.
 We measure future stability by using the same WFU metric, but for uptime
 in the future.
 We similarly weight observations farther in the future less than
 observations in the near future.
-We then simulate different pre-defined required WFUs between $90~\%$ and
-$99.9~\%$ and calculate what the mean future WFUs would be.
+The rationale is that a high fractional uptime in the next few days is
+slightly more important than in a month.
+For a given set of relays we measure the 10th percentile of WFU in the
+future as an indication of relay stability.
+The result is that 10~\% of relays will have a lower uptime than this
+value and 90~\% of relays will have a higher uptime.
+
+Figure~\ref{fig:wfu-wfu-sim} shows the 10th percentile of WFU for simulations
+using the 30th, 40th, 50th, and 60th WFU percentile as requirement for
+assigning the Guard flag.
+This graph also shows the future WFU of relays that got their Guard flag
+assigned by the directory authorities.
+Here, the simulation using the default 50th percentile is much closer to
+the flags assigned by the directory authorities than in the case of the
+Stable flag.
+Unsurprisingly, the 30th percentile requirement has the worst stability,
+because it includes up to 70\% of all relays, minus the non-familiar ones
+and those that don't meet the bandwidth requirement.
+Relay stability increases for raising the WFU requirement to the 40th,
+50th, and 60th percentile, but in most cases the outcome is an uptime of
+more than 85~\% or even more than 90~\%.
+Under the assumption that a client needs only one or two working guards at
+a time and can pick a new set of guards easily, these stabilities seem to
+be sufficiently high.
 
 \begin{figure}[t]
-\includegraphics[width=\textwidth]{wfu-sim.pdf}
-\caption{Impact of different required WFU on the mean empirical future WFU
-and fraction of potential entry guards}
-\label{fig:wfu-sim}
+\includegraphics[width=\textwidth]{wfu-wfu-sim.pdf}
+\caption{Impact of changing the WFU percentile requirement for assigning
+the Guard flag on WFU in the future}
+\label{fig:wfu-wfu-sim}
 \end{figure}
 
-Figure~\ref{fig:wfu-sim} shows the analysis results in a path plot similar
-to the one in Section~\ref{sec:mtbf-sim}.
-This path plot shows the effect of varying the WFU requirement, displayed
-as different line colors, on the fraction of relays meeting this
-requirement on the $x$ axis and on the WFU in the future on the $y$ axis.
-Two data points adjacent in time are connected by a line, forming a path.
+\section{Selecting high-bandwidth entry guards}
 
-In this graph we can see that the majority of data points for the default
-required WFU of 98~\% falls in a future WFU range of 94~\% to 96\% with
-the smallest WFU being no less than 89~\%.
-In most cases, the fraction of relays meeting the default WFU requirement
-is between 40~\% and 50~\%.
+A second question regarding Guard flag assignments is whether we can raise
+the advertised bandwidth requirement to end up with faster entry guards.
+The fixed set of entry guards determines to a certain extent what overall
+performance the client can expect.
+If a client is unlucky and picks only slow guards, the overall Tor
+performance can be bad, in particular because clients don't drop slow
+guards, but only failing ones.
 
-If the WFU requirement is relaxed to 95~\% or even 90~\%, the WFU in the
-future decreases slightly towards around 94~\% to 95~\% for most cases.
-At first sight it may seem surprising that a past WFU of 90~\% leads to
-a future WFU of 94~\%, but it makes sense, because the past WFU is a
-required minimum whereas the future WFU is a mean value of all relays
-meeting the requirement.
-Another effect of relaxing the required WFU is that the fraction of relays
-meeting the requirement increases from 50~\% to almost 66~\%.
+We introduce a new metric to evaluate how much bandwidth capacity a relay
+will provide in the future: the \emph{weighted bandwidth}.
+This metric is not based on a relay's advertised bandwidth, but on the
+actual written bytes as reported by the relay.
+Again, we're more interested in the bandwidth in the near future, so we
+discount observations 12 hours further in the future by factor 0.95.
 
-Interestingly, when tightening the requirement to a WFU value of 99~\% or
-even 99.9~\%, the future WFU does not increase significantly, if at all.
-To the contrary, the future WFU of relays meeting the 99.9~\% requirement
-drops to a range of 91~\% to 94~\% for quite a while.
-A likely explanation for this effect is that the fraction of relays
-meeting these high requirements is only 15~\%.
-While these 15~\% of relays may have had a very high uptime in the past,
-failure of only a few of these relays ruin the WFU metric in the future.
+Figure~\ref{fig:advbw-wb-sim} shows the effect of changing the advertised
+bandwidth requirement from the 50th percentile to the 40th, 60th, or even
+70th percentile on the 10th percentile of weighted bandwidth.
+Similar to the graphs above, 10~\% of relays have a lower weighted
+bandwidth and 90~\% have a higher weighted bandwidth.
+Here, the observed 50th percentile is almost identical to the simulated
+50th percentile.
+The graph shows that raising the requirement to the 60th percentile of
+advertised bandwidth would shift this percentile line by roughly 10 KiB/s
+to the right.
+The 70th percentile would ensure that 90~\% of the selected
+Guard relays have a weighted bandwidth of at least between 60 and
+170~KiB/s depending on the current network situation.
 
-A cautious conclusion of this analysis could be that, if the goal is to
-increase the number of \texttt{Guard} relays, reducing the required WFU to
-95~\% or even 90~\% wouldn't impact relay stability by too much.
-Conversely, increasing the required WFU beyond the current value of 98~\%
-doesn't make much sense and might even negatively affect relay stability.
+\begin{figure}[t]
+\includegraphics[width=\textwidth]{advbw-wb-sim.pdf}
+\caption{Impact of changing the advertised bandwidth percentile for
+assigning the Guard flag on bandwidth capacity in the future}
+\label{fig:advbw-wb-sim}
+\end{figure}
 
-\subsubsection*{Next steps}
+Of course, raising the advertised bandwidth requirement for becoming a
+guard node results in having fewer possible guard nodes.
+Figure~\ref{fig:advbw-frac-relays-sim} shows the effect of raising the
+advertised bandwidth requirement from the 50th to the 60th or 70th
+percentile.
+The 60th percentile requirement would reduce the fraction of relays with
+the Guard flag from 28~\% to around 25~\%, and the 70th percentile even to
+a value below 20~\%.
+There's a clear trade-off here between raising the bandwidth capacity of
+entry guards and having fewer guards to distribute one third of the
+network load to.
+Having fewer than 20~\% of all relays being possible Guard nodes is
+probably not enough and will generate new performance problems.
 
-{\it
-\begin{itemize}
-\item Tor penalizes relays that change their IP address or port by ending
-the running uptime session and starting a new uptime session.  This
-reduces both WFU and MTBF.  The simulation doesn't take this into account
-yet.  Should it?
-\item Add the bandwidth requirements to the simulation.  The current
-simulation doesn't make any assumptions about relay bandwidth when
-assigning \texttt{Guard} flags.  Which bandwidth value would we use here?
-\item Add another graph similar to Figure~\ref{fig:wfu-sim}, but replace
-the ``Fraction of relays meeting WFU requirement'' on the \emph{x} axis
-with the ``Fraction of \emph{bandwidth} of relays meeting WFU
-requirement.''
-After all, we're interested in having enough bandwidth capacity for the
-entry guard position, not (only) in having enough distinct relays.
-Which bandwidth value would we use here?
-\item Roger suggests to come up with a better metric than ``WFU since we
-first saw a relay.''
-He says ``it seems wrong to make something that we saw earlier have a
-worse WFU than something we saw later, even if they've had identical
-uptimes in that second period.''
-What would be good candidate metrics?
-\item Ponder finding another metric than WFU for future observations.  In
-particular, with the current WFU parameters of $0.95$ and $12$ hours, the
-WFU reaches up to 4 months into the future.  It seems useful to weight
-uptime in the near future higher than uptime in the farther future, but
-maybe we should use parameters to limit the interval to $1$ or $2$ months.
-\end{itemize}
-}
-
-\section{Forming stable hidden-service directory sets}
-
-{\it
-In this section we should evaluate the current requirements for getting
-the \texttt{HSDir} flag.
-Also, what happened to the number of relays with the \texttt{HSDir} flag
-in August 2010?
-}
-
-\section{Selecting stable relays for a fallback consensus}
-
-{\it
-Is the concept of a fallback consensus still worth considering?
-If so, we should analyze how to identify those relays that are most likely
-to be around and reachable under the same IP address.
-The result of this analysis could lead to adding a new \texttt{Longterm}
-(or \texttt{Fallback}?) flag as suggested in proposal 146.
-% TODO Correctly cite proposal 146 here.  -KL
-Maybe the analysis of bridges on stable IP addresses should come first,
-though.
-}
-
-\section{Distributing bridges with stable IP addresses}
-
-{\it
-A possible outcome of this analysis could be to add a new flag
-\texttt{StableAddress} (similar to the \texttt{Longterm} flag from the
-previous section) to bridge network statuses and to change BridgeDB to
-include at least one bridge with this flag in its results.
-One of the challenges of this analysis will be to connect sanitized bridge
-descriptors from two months with each other.
-The sanitized IP addresses of two bridges in two months do not match,
-because we're using a new secret key as input to the hash function every
-month.
-We might be able to correlate the descriptors of running bridges via their
-descriptor publication times or bridge statistics.
-But if that fails, we'll have to run the analysis with only 1 month of
-data at a time.
-}
+\begin{figure}[t]
+\includegraphics[width=\textwidth]{advbw-frac-relays-sim.pdf}
+\caption{Influence of changing the advertised bandwidth percentile on the
+fraction of relays getting the Guard flag assigned}
+\label{fig:advbw-frac-relays-sim}
+\end{figure}
 
 \section{Discussion and future work}
 
-The approach taken in this analysis was to select relays that are most
-stable in a given context based on their history.
-A different angle to obtain higher relay stability might be to identify
-what properties of a relay have a positive or negative impact on its
-stability.
-For example, relays running a given operating system or given Tor software
-version might have a higher stability than others.
-Possible consequences could be to facilitate setting up relays on a given
-operating system or to improve the upgrade process of the Tor software.
+In this report we used a simulator to evaluate Tor's relay stability
+metrics for assigning Stable and Guard flags to relays.
+We introduced three metrics to evaluate how stable or fast a set of relays
+is that got the Stable or Guard flag assigned.
+Our simulator uses the same algorithms to decide whether a relay is stable
+as the directory authorities and can be parameterized to analyze different
+requirements.
+We could further add new algorithms to the simulator and see what subsets
+of Stable and Guard relays that would produce.
+
+Using our simulator we found that the fraction of relays with the Stable
+flag in the current network is higher than it probably should be.
+We also learned that the WFU requirements for assigning the Guard flag are
+quite reasonable and lead to stable guards.
+But we might consider raising the advertised bandwidth requirement a bit
+to have higher-bandwidth guard nodes.
+Medium-term, we should get rid of a requirement that is based on the
+self-reported advertised bandwidth.
+
+Possible next steps are to review the Tor source code for assigning flags
+and compare the internal relay stability data from the directory
+authorities to simulated values.
+It would be interesting to know why the directory authorities assign the
+Stable flag so generously.
+Also, it would be interesting to compare the internal stability data from
+multiple directory authorities to see in how far they agree.
+Another possible next step might be to turn the four requirement
+percentiles (WMTBF, WFU, Weighted Time, and Advertises Bandwidth) into
+consensus parameters to be able to test parameter changes in the real
+network.
+
+We also left the analysis of relay stability for hidden-service
+directories, fallback consensuses, and bridge relays as future work.
+Possible starting points are an earlier analysis of hidden-service
+directory stability \cite{loesing2009thesis}, the Tor proposal
+describing fallback consensuses \cite{proposal146}, and a tech report
+explaining how bridge descriptors are sanitized to make them publicly
+available \cite{loesing2011overview}.
+
+\bibliography{report}
+\bibliographystyle{plain}
 
 \end{document}
 
