@@ -1,0 +1,143 @@
+Tech report: An Analysis of Tor Relay Stability
+===============================================
+
+We developed a simulator for the tech report "An Analysis of Tor Relay
+Stability" that varies the requirements for assigning Stable and Guard
+flags to relays and evaluates how useful these assignments are.  In this
+README we describe how to use the simulator to re-run and possibly modify
+our analysis.
+
+First, download the comma-separated value file containing extracted status
+entries and server descriptors parts from the metrics database.  The file
+is called running-relays-reverse.csv and contains lines like the
+following:
+
+  2011-06-30 23:00:00,0089102aa16208d991dc36efafd5cf13b35aa707,
+      f,f,f,193581,1148763136
+
+The columns are:
+
+ - consensus valid-after time
+ - relay fingerprint
+ - whether the relay was restarted in the last hour (t/f)
+ - whether the relay got the Stable flag assigned (t/f)
+ - whether the relay got the Guard flag assigned (t/f)
+ - advertised bandwidth in bytes per day
+ - written bytes per day
+
+If you don't have this file or want to generate your own file, you can
+export status entries and server descriptor parts from the metrics
+database.  Be sure to plan for a buffer of at least 4 months (better: 6
+months) before and after the interval to investigate.  The psql commands
+and SELECT statement for extracting these data are as follows:
+
+  tordir=> \f ','
+  tordir=> \a
+  tordir=> \t
+  tordir=> \o running-relays-reverse.csv
+  tordir=> SELECT statusentry.validafter,
+             statusentry.fingerprint,
+             CASE WHEN descriptor.uptime IS NULL THEN FALSE ELSE
+               statusentry.validafter - descriptor.published +
+               descriptor.uptime * '1 second'::INTERVAL <
+                 '01:00:00'::INTERVAL END AS restarted,
+             statusentry.isstable,
+             statusentry.isguard,
+             LEAST(descriptor.bandwidthavg, descriptor.bandwidthobserved)
+               AS bwadvertised,
+             bwhist.written_sum AS writtensum
+           FROM statusentry
+           LEFT JOIN descriptor
+           ON statusentry.descriptor = descriptor.descriptor
+           LEFT JOIN bwhist
+           ON DATE(statusentry.validafter) = bwhist.date
+           AND statusentry.fingerprint = bwhist.fingerprint
+           WHERE statusentry.isrunning
+           AND statusentry.validafter >= '2010-01-01 00:00:00'
+           AND statusentry.validafter < '2011-07-01 00:00:00'
+           ORDER BY statusentry.validafter DESC, statusentry.fingerprint;
+  tordir=> \o
+  tordir=> \q
+
+The simulator needs to parse the file in forward and in reverse direction.
+The easiest way to implement this is to reverse the file using tac:
+
+  $ tac running-relays-reverse.csv > running-relays-foward.csv
+
+Run the simulation consisting of a reverse and a forward run.  The results
+of the reverse run will be stored to the future-stability/ directory and
+will be re-used in subsequent simulations.  Delete or move away the
+future-stability/ directory to repeat the reverse run, too.  The execution
+can take 20--30 minutes or even more depending on your hardware.
+
+  $ javac SimulateStableGuard.java
+  $ java SimulateStableGuard
+
+The result is a file stability.csv that contains the following columns:
+
+- time: consensus valid-after time
+- excladvbw, exclwfu, exclwt: the number of relays that did not get the
+  Guard flag assigned in the simulation which got it from the directory
+  authorities; excladvbw did not get it because of the advertised
+  bandwidth requirement, exclwfu because of the WFU requirement, and
+  exclwt because of the weighted time requirement; it's quite possible
+  that a relay did not get the Guard flag for more than one reason
+- familiar: absolute number of `familiar' relays
+- guard: absolute number of relays with the Guard flag as assigned by the
+  directory authorities
+- guardYYwfuZZadvbw: absolute number of relays with the Guard flag as
+  assigned in the simulation when using YY as the WFU percentile and ZZ as
+  the advertised bandwidth percentile
+- guardintersect, guardobserved, guardsimulated: number of relays that got
+  the Guard flag both by the directory authorities and by the simulator or
+  that only got it by one of them
+- minadvbwaZZadvbw: Minimum advertised bandwidth when using ZZ as the
+  advertised bandwidth percentile, before cutting it down to 250 KiB/s
+- minadvbwbZZadvbw: Minimum advertised bandwidth when using ZZ as the
+  advertised bandwidth percentile, after cutting it down to 250 KiB/s
+- minwfuaYYwfu: Minimum WFU when using YY as the WFU percentile, before
+  cutting it down to 0.98
+- minwfubYYwfu: Minimum WFU when using YY as the WFU percentile, after
+  cutting it down to 0.98
+- minwmtbfaXX: Minimum WMTBF when using XX as the WMTBF percentile, before
+  cutting it down to 5 days
+- minwmtbfbXX: Minimum WMTBF when using XX as the WMTBF percentile, after
+  cutting it down to 5 days
+- minwta: Minimum weighted time before cutting it down to 8 days
+- minwtb: Minimum weighted time after cutting it down to 8 days
+- mtunfXX: Mean time until next failure when using XX as the WMTBF
+  percentile
+- mwfu: Mean WFU of relays that got the Guard flag assigned by the
+  directory authorities
+- mwfuYYwfuZZadvbw: Mean WFU when using YY as the WFU percentile and ZZ as
+  the advertised bandwidth percentile
+- percWWfwb: WW-th percentile of future weighted bandwidth of relays that
+  got the Guard flag assigned by the directory authorities
+- percWWfwbYYwfuZZadvbw: WW-th percentile of future weighted bandwidth
+  when using YY as the WFU percentile and ZZ as the advertised bandwidth
+  percentile
+- percWWtunf: WW-th percentile of time until next failure of relays that
+  got the Stable flag assigned by the directory authorities
+- percWWtunfXX: WW-th percentile of time until next failure when using XX
+  as the WMTBF percentile
+- percWWwfu: WW-th percentile of WFU of relays that got the Guard flag
+  assigned by the directory authorities
+- percWWwfuYYwfuZZadvbw: WW-th percentile of WFU when using YY as the WFU
+  percentile and ZZ as the advertised bandwidth percentile
+- running: absolute number of running relays
+- stable: absolute number of relays with the Stable flag as assigned by the
+  directory authorities
+- stableXX: absolute number of relays with the Stable flag as assigned in
+  the simulation when using XX as WMTBF percentile
+- stableintersect, stableobserved, stablesimulated: number of relays that
+  got the Stable flag both by the directory authorities and by the
+  simulator or that only got it by one of them
+
+Plot the graphs for the tech report:
+
+  $ R --slave -f stability.R
+
+Compile the tech report:
+
+  $ pdflatex report.tex
+

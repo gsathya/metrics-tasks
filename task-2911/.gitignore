@@ -1,0 +1,9 @@
+*.class
+*.csv
+*.aux
+*.log
+*.bbl
+*.blg
+*.pdf
+future-stability/
+
