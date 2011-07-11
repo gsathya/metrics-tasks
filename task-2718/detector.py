@@ -290,6 +290,25 @@ def plot_all(tss, minx, maxx, INTERV, DAYS=None, rdir="img"):
       plot_target(tss, c,xtitle, minx, maxx, DAYS, INTERV)
   summary_file.close()
 
+def write_all(tss, minc, maxc, INTERVAL=7):
+  ranges_file = file("direct-users-ranges.csv", "w")
+  ranges_file.write("date,country,minusers,maxusers\n")
+  exclude = set(["all", "??", "date"])
+  for c in tss.country_codes:
+    if c in exclude:
+      continue
+    print ".",
+    series = tss.get_country_series(c)
+    for i, v in enumerate(series):
+      if i > 0 and i - INTERVAL >= 0 and series[i] != None and series[i-INTERVAL] != None and series[i-INTERVAL] != 0 and minc[i]!= None and maxc[i]!= None:
+        minv = minc[i] * poisson.ppf(1-0.9999, series[i-INTERVAL])
+        maxv = maxc[i] * poisson.ppf(0.9999, series[i-INTERVAL])
+        if not minv < maxv:
+          print minv, maxv, series[i-INTERVAL], minc[i], maxc[i]
+        assert minv < maxv
+        ranges_file.write("%s,%s,%s,%s\n" % (tss.all_dates[i], c, minv, maxv))
+  ranges_file.close()
+
 def main():
   # Change these to customize script
   CSV_FILE = "direct-users.csv"
@@ -301,6 +320,7 @@ def main():
   l = tss.get_largest_locations(50)
   minx, maxx = make_tendencies_minmax(l, INTERV)
   plot_all(tss, minx, maxx, INTERV, DAYS, rdir=GRAPH_DIR)
+  write_all(tss, minx, maxx, INTERV)
 
 if __name__ == "__main__":
     main()
