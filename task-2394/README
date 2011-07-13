@@ -1,17 +1,26 @@
 Visualize self-reported vs. measured bandwidth of relays
 ========================================================
 
- - Download consensuses, votes, and server descriptors from the metrics
-   website.  Be sure to download the server descriptors of the month
-   preceding the consensuses and votes, too.  For example, you could
-   download these files:
+ - Download consensus and votes from the metrics website, e.g.,
 
-   https://metrics.torproject.org/data/votes-2011-01.tar.bz2
-   https://metrics.torproject.org/data/consensuses-2011-01.tar.bz2
-   https://metrics.torproject.org/data/server-descriptors-2010-12.tar.bz2
-   https://metrics.torproject.org/data/server-descriptors-2011-01.tar.bz2
+   https://metrics.torproject.org/votes?valid-after=2011-07-13-05-00-00
+   https://metrics.torproject.org/consensus?valid-after=2011-07-13-05-00-00
 
- - Extract the tarballs into subdirectory descriptors/.
+ - Also download the server descriptor archives containing the referenced
+   server descriptors from the metrics website.  If the consensus was
+   published on the 3rd of a month or later, it's sufficient to download a
+   single tarball.  Otherwise, download both tarballs for the current and
+   previous month:
+
+   https://metrics.torproject.org/data/server-descriptors-2011-07.tar.bz2
+
+ - Extract the server descriptor tarball(s) into the subdirectory
+   descriptors/.  Also copy the consensus and votes there.  With the URLs
+   stated above, the directory would contain these files:
+
+     2011-07-13-05-00-00-consensus
+     2011-07-13-05-00-00-votes
+     server-descriptors-2011-07
 
  - Download Apache Commons Codec 1.4 or higher and put in in this
    directory.
@@ -22,6 +31,14 @@ Visualize self-reported vs. measured bandwidth of relays
  - Run the Java class, e.g.,
    $ java -cp .:commons-codec-1.4.jar ParseDescriptors
 
- - Once the Java application is done, you'll find a file
+   Once the Java application is done, you'll find a file
    bandwidth-comparison.csv in this directory.
+
+ - Plot the data:
+
+   $ R --slave -f bandwidth-comparison.R
+
+   (Edit bandwidth-comparison.R to color urras or one of the other
+   directories specially by putting in the lines containing "purple" and
+   re-run the last command above.)
 

@@ -32,8 +32,6 @@ opts(title = "Ratio between measured and self-reported relay bandwidth",
 ggsave(filename = "bandwidth-comparison-relays.png",
   width = 8, height = 5, dpi = 150)
 
-stopit
-
 # Plot ECDFs to compare consensus to votes
 cdf_relays_category_votes <- function(data, category) {
   d <- data[data$category == category & data$descriptorbandwidth > 0, ]
@@ -81,8 +79,9 @@ scale_x_log10("\nRatio of measured by self-reported bandwidth",
 scale_y_continuous("Fraction of relays\n", limits = c(0, 1),
   formatter = "percent") +
 scale_colour_manual("",
-  breaks = c("consensus", "ides", "urras", "moria1", "gabelmoo"),
+  breaks = c("consensus", "urras", "ides", "moria1", "gabelmoo"),
   values = c("black", rep(alpha("black", 0.25), 4))) +
+# values = c("black", alpha("purple", 0.5), rep(alpha("black", 0.25), 3))) +
 geom_vline(xintercept = 1, legend = FALSE, linetype = "dotted") +
 opts(title = paste("Measured vs. self-reported bandwidth ratios in",
   "consensus and votes\n"), legend.position = "none")
@@ -141,8 +140,9 @@ scale_x_log10("\nRatio of measured by self-reported bandwidth",
 scale_y_continuous("Fraction of measured bandwidth\n", limits = c(0, 1),
   formatter = "percent") +
 scale_colour_manual("",
-  breaks = c("consensus", "ides", "urras", "moria1", "gabelmoo"),
+  breaks = c("consensus", "urras", "ides", "moria1", "gabelmoo"),
   values = c("black", rep(alpha("black", 0.25), 4))) +
+# values = c("black", alpha("purple", 0.5), rep(alpha("black", 0.25), 3))) +
 geom_vline(xintercept = 1, legend = FALSE, linetype = "dotted") +
 opts(title = paste("Measured vs. self-reported bandwidth ratios in",
   "consensus and votes\n"), legend.position = "none")

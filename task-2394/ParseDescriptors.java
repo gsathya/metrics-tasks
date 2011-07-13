@@ -19,7 +19,7 @@ public class ParseDescriptors {
         files.addAll(Arrays.asList(file.listFiles()));
       } else if (filename.endsWith("-consensus")) {
         consensuses.put(filename, file);
-      } else if (filename.contains("-vote-")) {
+      } else if (filename.endsWith("-votes")) {
         votes.put(filename, file);
       } else if (filename.length() == 40) {
         descriptors.put(filename, file);
@@ -55,51 +55,45 @@ public class ParseDescriptors {
       System.out.println("Parsing consensus " + consensusFile.getName());
       BufferedReader brC = new BufferedReader(new FileReader(
           consensusFile));
-      String lineC, validAfter = null, lastDirSource = null,
-          lastRLine = null, lastSLine = null;
+      String lastRLine = null, lastSLine = null;
       String consensusTimestamp = consensusFile.getName().substring(0,
               "YYYY-MM-DD-hh-mm-ss".length());
+      String votesFilename = consensusTimestamp + "-votes";
       Map<String, Map<String, String>> measuredBandwidthsByDirSource =
           new HashMap<String, Map<String, String>>();
-      while ((lineC = brC.readLine()) != null) {
 
-        /* Start with parsing a consensus to find out which votes it
-         * contains. */
+      /* Parse votes first, if we have them, and extract measured
+       * bandwidths. */
+      if (votes.containsKey(votesFilename)) {
+        BufferedReader brV = new BufferedReader(new FileReader(
+            votes.get(votesFilename)));
+        String lineV;
+        Map<String, String> measuredBandwidths = null;
+        while ((lineV = brV.readLine()) != null) {
+          if (lineV.startsWith("dir-source ")) {
+            String dirSource = lineV.split(" ")[2];
+            measuredBandwidths = new HashMap<String, String>();
+            measuredBandwidthsByDirSource.put(dirSource,
+                measuredBandwidths);
+          } else if (lineV.startsWith("r ")) {
+            lastRLine = lineV;
+          } else if (lineV.startsWith("w ") &&
+              lineV.contains(" Measured=")) {
+            String fingerprint = Hex.encodeHexString(Base64.
+                decodeBase64(lastRLine.split(" ")[2] + "="));
+            String measuredBandwidth = lineV.substring(lineV.indexOf(
+                " Measured=") + " Measured=".length()).split(" ")[0];
+            measuredBandwidths.put(fingerprint, measuredBandwidth);
+          }
+        }
+        brV.close();
+      }
+
+      /* Parse r, s, and w lines from the consensus. */
+      String lineC, validAfter = null;
+      while ((lineC = brC.readLine()) != null) {
         if (lineC.startsWith("valid-after ")) {
           validAfter = lineC.substring("valid-after ".length());
-        } else if (lineC.startsWith("dir-source ")) {
-          lastDirSource = lineC.split(" ")[2];
-        } else if (lineC.startsWith("vote-digest ") &&
-            bandwidthAuthorities.containsKey(lastDirSource)) {
-          String voteDigest = lineC.substring("vote-digest ".length());
-          String voteFilename = consensusTimestamp + "-vote-"
-              + lastDirSource + "-" + voteDigest;
-          if (votes.containsKey(voteFilename)) {
-
-            /* Parse votes first and extract measured bandwidths. */
-            Map<String, String> measuredBandwidths =
-                new HashMap<String, String>();
-            measuredBandwidthsByDirSource.put(lastDirSource,
-                measuredBandwidths);
-            BufferedReader brV = new BufferedReader(new FileReader(
-                votes.get(voteFilename)));
-            String lineV;
-            while ((lineV = brV.readLine()) != null) {
-              if (lineV.startsWith("r ")) {
-                lastRLine = lineV;
-              } else if (lineV.startsWith("w ") &&
-                  lineV.contains(" Measured=")) {
-                String fingerprint = Hex.encodeHexString(Base64.
-                    decodeBase64(lastRLine.split(" ")[2] + "="));
-                String measuredBandwidth = lineV.substring(lineV.indexOf(
-                    " Measured=") + " Measured=".length()).split(" ")[0];
-                measuredBandwidths.put(fingerprint, measuredBandwidth);
-              }
-            }
-            brV.close();
-          }
-
-        /* Parse r, s, and w lines from the consensus. */
         } else if (lineC.startsWith("r ")) {
           lastRLine = lineC;
         } else if (lineC.startsWith("s ")) {
