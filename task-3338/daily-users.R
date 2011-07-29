@@ -14,7 +14,7 @@ dbpassword= "password" ###### <- put in real password here!
 plot_dirbytes <- function(start, end, path, dpi) {
   drv <- dbDriver("PostgreSQL")
   con <- dbConnect(drv, user = dbuser, password = dbpassword, dbname = db) 
-  q <- paste("SELECT date, r, bwp, brp, bwn, brn, bwr, brr "
+  q <- paste("SELECT date, r, bwp, brp, bwn, brn, bwr, brr ",
       "FROM user_stats WHERE date >= '", start, "' AND date <= '", end,
       "' AND date < (SELECT MAX(date) FROM user_stats) - 1 ",
       "AND country = 'zy' ORDER BY date", sep = "")
