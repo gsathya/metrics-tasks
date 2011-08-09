@@ -1,0 +1,120 @@
+Tor Censorship Detector
+=======================
+
+The Tor Censorship Detector is a script that reads a file containing the
+number of daily Tor users and finds anomalies that might be indicative of
+censorship.  This README explains how to use the script and then makes an
+attempt to describe how the math behind the script works.
+
+We start with downloading the estimated Tor user numbers from the metrics
+website:
+
+  $ wget https://metrics.torproject.org/csv/direct-users.csv
+
+This file contains estimated daily Tor users with columns being country
+codes and rows being dates.  A detailed description of how these estimates
+are obtained is contained in this tech report:
+
+  https://metrics.torproject.org/papers/countingusers-2010-11-30.pdf
+
+An excerpt of direct-users.csv is:
+
+  date,??,a1,a2,ad,ae,...,zw,all
+  2011-08-06,6936,448,61,24,2460,...,13,337627
+  2011-08-07,5904,398,53,15,2335,...,13,335626
+
+The "date" column contains the ISO-formatted date.  The number in the "??"
+column stands for all IP addresses that could not be resolved to a country
+by the GeoIP database.  The columns "a1" to "zw" contain the number of
+users by country, including MaxMind-specific country codes described at
+http://www.maxmind.com/app/iso3166 .  The "all" column contains the sum of
+all Tor users on a given day.
+
+In order to run the Python script to detect anomalies, make an img/
+directory and install the required Python packages:
+
+  $ mkdir img/
+  $ sudo apt-get install python-numpy python-scipy python-matplotlib
+
+Run the detector.py script (this may take a while):
+
+  $ python detector.py
+
+The output consists of a file direct-users-ranges.csv containing the
+expected range of users per day and country, a file img/summary.txt with
+an overview of possible censorship events, and graphs in img/ for all
+countries with possible censorship events.
+
+An excerpt of direct-users-ranges.csv is:
+
+  date,country,minusers,maxusers
+  2011-08-06,ae,1559.43780955,3880.20765967
+  2011-08-07,ae,1460.8116866,3452.1615707
+
+This output means that the expected number of users on August 6, 2011 for
+the United Arab Emirates was 1559 to 3880 users.  The observed number of
+users in direct-users.csv was 2460, so that the script wouldn't suspect a
+censorship event here.
+
+The img/summary.txt file begins with the following lines:
+
+  =======================
+  Report for 2011-02-03 to 2011-08-07
+  =======================
+  sc -- down: 17 (up: 25 affected: 148)
+  ly -- down: 13 (up: 17 affected: 29)
+  py -- down: 10 (up:  8 affected: 137)
+
+This output means that, for example, in Libya there were 13 possible
+censorship events (downturns) and 17 possible releases of censorship
+(upturns) between February 3 and August 7, 2011.
+
+The graph img/013-ly-censor.png visualizes these downturns and upturns in
+a time plot.
+
+The core of the censorship detector script is contained in the functions
+make_tendencies_minmax() and write_all() in detector.py.
+
+In make_tendencies_minmax(), the detector is given the user number series
+of the top-50 countries by users based on the last day in direct-users.csv
+for the entire interval in direct-users.csv.  For example, the last 10
+values in the series for the United States are:
+
+  66171,72866,76900,76292,77753,75749,81680,68084,77526,75499
+
+For each of these countries, the detector computes the quotients between
+the number of users on a given day and 1 week before.  These quotients for
+the series above are:
+
+  1.048,1.075,1.015,0.987,1.148,0.959,1.176,1.029,1.064,0.982
+
+For every day in direct-users.csv, the detector considers all non-zero
+quotients of the top-50 countries.  It then discards outliers which are
+more than 4 times the interquartile range away from the median.  For
+August 7, 2011, all 50 quotients were in the interval from 0.697 to 1.263
+with no outliers.
+
+In the next step, the detector fits a normal distribution to these
+quotients and uses the inverse cumulative function to look up the 0.01-th
+and 99.99-th percentiles.  These values are the hypothetic quotients that
+are greater than 0.01% and 99.99% of all quotients, respectively.  In the
+data mentioned above, the fitted normal distribution has a mean of 0.992
+and a standard deviation of 0.091, and the looked up percentiles are 0.654
+and 1.33.
+
+In write_all(), the detector calculates an estimated minimum and maximum
+for a given country and date based on the user number 1 week ago.  The
+detector first looks up the 0.01-th and the 99.99-th percentile of a
+Poisson distribution with the mean being the user number from 1 week ago.
+It then weights these percentiles with the network-wide quotients
+calculated above.
+
+For example, when looking at the user numbers from the United States,
+there were 75499 users on August 7, 2011 and 76900 users 1 week before on
+July 31, 2011.  The 0.01-th and the 99.99th percentiles of the Poisson
+distribution with a mean of 76900 are 75871 and 77933.  The estimated
+range of users on August 7, 2011 goes from 0.654 * 75871 = 49620 to
+1.33 * 77933 = 103651.  The actually observed 75499 users are within this
+interval, so there's no suspected censorship event, nor release of
+censorship in the United States on August 7, 2011.
+
