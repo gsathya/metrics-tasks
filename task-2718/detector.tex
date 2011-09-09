@@ -2,7 +2,7 @@
 \begin{document}
 \author{George Danezis\\{\tt gdane@microsoft.com}}
 \title{An anomaly-based censorship-detection\\system for Tor}
-\date{August 11, 2011}
+\date{September 9, 2011}
 \maketitle
 
 \section{Introduction}
@@ -10,11 +10,11 @@
 The Tor project is currently the most widely used anonymity and censorship
 resistance system worldwide.
 As a result, national governments occasionally or regularly block access
-to its facilities for replaying traffic.
+to its facilities for relaying traffic.
 Major blocking might be easy to detect, but blocking from smaller
 jurisdictions, with fewer users, could take some time to detect.
-Yet, early detection may be key to deploy countermeasures.
-We have designed an ``early warning'' systems that looks for anomalies in
+Yet, early detection may be key to deploying countermeasures.
+We have designed an ``early warning'' system that looks for anomalies in
 the volumes of connections from users in different jurisdictions and flags
 potential censorship events.
 Special care has been taken to ensure the detector is robust to
@@ -28,22 +28,22 @@ sanitised form to minimise the potential for harm to active users.
 The data collection has been historically patchy, introducing wild
 variations over time that is not due to censorship.
 The detector is based on a simple model of the number of users per day per
-jurisdictions.
+jurisdiction.
 That model is used to assess whether the number of users we observe is
-typical, too high or too low.
+typical, too high, or too low.
 In a nutshell the prediction on any day is based on activity of previous
 days locally as well as worldwide.
 
 \section{The model intuition}
 
-The detector is based on a model of the number of connection from every
+The detector is based on a model of the number of connections from every
 jurisdiction based on the number of connections in the past as well as a
 model of ``natural'' variation or evolution of the number of connections.
 More concretely, consider that at time $t_i$ we have observed $C_{ij}$
 connections from country $j$.
 Since we are concerned with abnormal increases or falls in the volume of
 connections we compare this with the number of connections we observed at
-a past time $t_{i-1}$ denoted as $C_{(t-1)j}$ from the same country $j$.
+a past time $t_{i-1}$ denoted as $C_{(i-1)j}$ from the same country $j$.
 The ratio $R_{ij} = C_{ij} / C_{(i-1)j}$ summarises the change in the
 number of users.
 Inferring whether the ratio $R_{ij}$ is within an expected or unexpected
@@ -96,7 +96,7 @@ detection is robust to manipulation by jurisdictions interested in
 censoring fast without being detected.
 First the parameter estimation for $N(m,v)$ is hardened: we only use the
 largest jurisdictions to model ratios and within those we remove any
-outliers that fall outside four inter-quartile ranges off the median.
+outliers that fall outside four inter-quartile ranges of the median.
 This ensures that a jurisdiction with a very high or very low ratio does
 not influence the model of ratios (and can be subsequently detected as
 abnormal).
@@ -123,8 +123,8 @@ The deployed model considers a time interval of seven (7) days to model
 connection rates (i.e. $t_i$ - $t_{i-1} = 7$ days).
 The key reason for a weekly model is our observation that some
 jurisdictions exhibit weekly patterns.
-A previous day model would then raise alarms every time weekly patterns
-emerged.
+A `previous day' model would then raise alarms every time weekly patterns
+emerge.
 We use the 50 largest jurisdictions to build our models of typical ratios
 of traffic over time---as expected most of them are in countries where no
 mass censorship has been reported.
@@ -149,13 +149,13 @@ detect censorship.
 Any censorship method that does not influence these numbers would as a
 result not be detected.
 This includes active attacks: a censor could substitute genuine requests
-with requests from adversary controlled machines to keep numbers within
+with requests from adversary-controlled machines to keep numbers within
 the typical ranges.
 
 A better model, making use of multiple previous readings, may improve the
 accuracy of detection.
 In particular, when a censorship event occurs there is a structural
-change, and a model based on modelling the future on user loads before the
+change, and a model based on modelling the future of user loads before the
 event will fail.
 This is not a critical problem, as these ``false positives'' are
 concentrated after real censorship events, but the effect may be confusing
