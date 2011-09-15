@@ -1,0 +1,9 @@
+$ grep -Rl "^bridge-ips [a-z]" bridge-descriptors-* | \
+  xargs -I {} grep -E "^extra-info|^bridge" {} > bridge-stats
+
+$ javac DetectBridgeBlockings.java && java DetectBridgeBlockings
+
+$ R --slave -f bridge-blockings.R
+
+$ pdflatex blocking.tex
+

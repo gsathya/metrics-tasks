@@ -1,0 +1,7 @@
+bridge-stats
+*.csv
+*.png
+*.aux
+*.log
+*.pdf
+
