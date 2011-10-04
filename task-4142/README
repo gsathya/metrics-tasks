@@ -1,0 +1,5 @@
+$ grep -Rl "dirreq-stats-end" * | xargs -I{} grep -E \
+  "published|dirreq-stats-end|^extra-info" {} > ../delay
+$ javac Eval.java && java Eval
+$ R --slave -f delay.R
+
