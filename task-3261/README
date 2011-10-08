@@ -1,0 +1,4 @@
+$ javac AnalyzeStatsCoverage.java
+$ java -Xmx4g AnalyzeStatsCoverage.java
+$ R --slave -f stats-coverage.R
+
