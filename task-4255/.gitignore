@@ -1,0 +1,11 @@
+*.pdf
+*.log
+stability.csv
+stable-fingerprints-and-addresses
+*.class
+*.aux
+*.bbl
+*.blg
+bridge-statuses/
+future-stability/
+

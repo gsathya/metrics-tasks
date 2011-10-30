@@ -1,0 +1,29 @@
+Extract sanitized bridge network statuses (not server descriptors or
+extra-info descriptors) to bridge-statuses/, e.g.
+bridge-statuses/bridge-descriptors-2010-01/statuses/.  Leaving server or
+extra-info descriptors in the directory may lead to errors or at least
+delay the evaluation significantly.
+
+Compile the Java class:
+
+  $ javac SimulateBridgeStability.java
+
+Run the Java class:
+
+  $ java SimulateBridgeStability
+
+Before re-running, delete the following files/directories to re-generate
+them:
+
+  - stable-fingerprints-and-addresses
+  - future-stability/
+  - stability.csv
+
+Plot the results:
+
+  $ R --slave -f stability.R
+
+Compile the report:
+
+  $ pdflatex report.tex
+
