@@ -11,7 +11,7 @@ user ---}}
 
 \maketitle
 
-\section{Introducing the instable bridges problem}
+\section{Introducing the unstable bridges problem}
 
 As of October 2011, the Tor network consists of a few hundred thousand
 clients, 2\,400 public relays, and about 600 non-public bridge relays.
@@ -107,7 +107,7 @@ active bridges have appeared more recently than it, \ldots'') and a static
 part that is independent of other bridges (e.g., ``\ldots or if it has
 been around for a Weighted Time of 8 days.'').
 The dynamic parts ensure that a certain fraction of bridges is considered
-stable even in a rather instable network.
+stable even in a rather unstable network.
 The static parts ensures that rather stable bridges are not excluded even
 when most other bridges in the network are stable.
 
@@ -200,9 +200,10 @@ operating system upgrade of the BridgeDB host.
 During this time, the bridge authority continued to work, but BridgeDB was
 unable to learn about new bridge descriptors from it.
 
-During the time from January 31 to February 16, 2011, the \verb+tor+
-process running the bridge authority silently died, but the script to copy
-descriptors to BridgeDB kept running.
+During the time from January 27 to February 16, 2011, the \verb+tor+
+process running the bridge authority silently died twice after a Tor
+version upgrade, but the script to copy descriptors to BridgeDB kept
+running.
 In this case, BridgeDB received fresh tarballs containing stale
 descriptors with a constant number of 687 relays, visualized in light
 gray.

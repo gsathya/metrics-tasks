@@ -44,7 +44,7 @@ opts(axis.title.x = theme_text(size = 12 * 0.8, face = "bold",
   axis.title.y = theme_text(size = 12 * 0.8, face = "bold", vjust = 0.5,
   hjust = 1),
   legend.position = "none")
-d <- stability[stability$time > '2011-01-29' &
+d <- stability[stability$time > '2011-01-24' &
   stability$time < '2011-02-19', ]
 e <- read.csv("stale-bridge-tarballs.csv", stringsAsFactors = FALSE,
   col.names = c("time"))
