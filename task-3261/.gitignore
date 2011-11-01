@@ -1,4 +1,7 @@
 *.class
 *.png
+*.pdf
 *.csv
+in/
+temp/
 

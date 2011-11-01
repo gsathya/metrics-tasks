@@ -18,6 +18,7 @@ public class AnalyzeStatsCoverage {
     if (inDirectory.exists() && inDirectory.isDirectory()) {
       System.out.println("Parsing descriptors in '"
           + inDirectory.getAbsolutePath() + "'.");
+      long started = System.currentTimeMillis();
       tempDirectory.mkdirs();
       Stack<File> dirs = new Stack<File>();
       SortedSet<File> files = new TreeSet<File>();
@@ -36,9 +37,12 @@ public class AnalyzeStatsCoverage {
       for (File file : files) {
         if (++fileNumber % (totalFiles / 1000) == 0) {
           int numberLength = String.valueOf(totalFiles).length();
+          long minutesLeft = (((System.currentTimeMillis() - started)
+              * (totalFiles - fileNumber)) / fileNumber) / (60L * 1000L);
           System.out.printf("Parsed %" + numberLength + "d of %"
-              + numberLength + "d descriptors (%3d %%)%n", fileNumber,
-              totalFiles, (fileNumber * 100) / totalFiles);
+              + numberLength + "d descriptors (%3d %%) %d minutes left%n",
+              fileNumber, totalFiles, (fileNumber * 100) / totalFiles,
+              minutesLeft);
         }
         BufferedReader br = new BufferedReader(new FileReader(file));
         String line, fingerprint = null, publishedLine = null;
@@ -177,15 +181,20 @@ public class AnalyzeStatsCoverage {
 
     /* Parse relevant lines by fingerprint and date.  The result will be
      * how many bytes that relay or bridge read/wrote in total, and how
-     * many bytes were included in the different reported statistics. */
+     * many bytes were included in the different reported statistics.
+     * Another result is the number of seconds for which this relay or
+     * bridge reported byte histories and other statistics. */
     if (tempDirectory.exists() && tempDirectory.isDirectory()) {
       System.out.println("Evaluating previously parsed descriptors in '"
           + tempDirectory.getAbsolutePath() + "'.");
       BufferedWriter bw = new BufferedWriter(new FileWriter(outFile));
-      bw.write("fingerprint,date,totalwritten,totalread,dirreqwritten,"
-          + "dirreqread,entrywritten,entryread,exitwritten,exitread,"
-          + "cellwritten,cellread,connbidirectwritten,connbidirectread,"
-          + "bridgewritten,bridgeread,geoipwritten,geoipread\n");
+      bw.write("fingerprint,date,totalwritten,totalread,totalseconds,"
+          + "dirreqwritten,dirreqread,dirreqseconds,entrywritten,"
+          + "entryread,entryseconds,exitwritten,exitread,exitseconds,"
+          + "cellwritten,cellread,cellseconds,connbidirectwritten,"
+          + "connbidirectread,connbidirectseconds,bridgewritten,"
+          + "bridgeread,bridgeseconds,geoipwritten,geoipread,"
+          + "geoipseconds\n");
       Stack<File> dirs = new Stack<File>();
       SortedSet<File> files = new TreeSet<File>();
       dirs.add(tempDirectory);
@@ -204,15 +213,16 @@ public class AnalyzeStatsCoverage {
         if (++fileNumber % (totalFiles / 1000) == 0) {
           int numberLength = String.valueOf(totalFiles).length();
           System.out.printf("Evaluated %" + numberLength + "d of %"
-              + numberLength + "d descriptors (%3d %%)%n", fileNumber,
-              totalFiles, (fileNumber * 100) / totalFiles);
+              + numberLength + "d descriptors/days (%3d %%)%n",
+              fileNumber, totalFiles, (fileNumber * 100) / totalFiles);
         }
         String fingerprint = file.getName().substring(0, 40);
         String date = file.getName().substring(41);
         long dateStartMillis = dateFormat.parse(date).getTime();
         long dateEndMillis = dateStartMillis + 24L * 60L * 60L * 1000L;
         long[] writeHistory = new long[96], readHistory = new long[96];
-        boolean[] dirreqStats = new boolean[96],
+        boolean[] running = new boolean[96],
+            dirreqStats = new boolean[96],
             entryStats = new boolean[96],
             exitStats = new boolean[96],
             cellStats = new boolean[96],
@@ -245,6 +255,7 @@ public class AnalyzeStatsCoverage {
                   System.exit(1);
                 }
                 history[j] = Long.parseLong(historyValues[i]);
+                running[j] = true;
               }
               currentMillis += 15L * 60L * 1000L;
             }
@@ -300,38 +311,53 @@ public class AnalyzeStatsCoverage {
         }
         br.close();
         bw.write(fingerprint + "," + date + ",");
-        long totalWritten = 0L, totalRead = 0L, dirreqWritten = 0L,
-            dirreqRead = 0L, entryWritten = 0L, entryRead = 0L,
-            exitWritten = 0L, exitRead = 0L, cellWritten = 0L,
-            cellRead = 0L, connBiDirectWritten = 0L,
-            connBiDirectRead = 0L, bridgeWritten = 0L, bridgeRead = 0L,
-            geoipWritten = 0L, geoipRead = 0L;
+        long totalWritten = 0L, totalRead = 0L, totalSeconds = 0L,
+            dirreqWritten = 0L, dirreqRead = 0L, dirreqSeconds = 0L,
+            entryWritten = 0L, entryRead = 0L, entrySeconds = 0L,
+            exitWritten = 0L, exitRead = 0L, exitSeconds = 0L,
+            cellWritten = 0L, cellRead = 0L, cellSeconds = 0L,
+            connBiDirectWritten = 0L, connBiDirectRead = 0L,
+            connBiDirectSeconds = 0L, bridgeWritten = 0L, bridgeRead = 0L,
+            bridgeSeconds = 0L, geoipWritten = 0L, geoipRead = 0L,
+            geoipSeconds = 0L;
         for (int i = 0; i < 96; i++) {
           totalWritten += writeHistory[i];
           totalRead += readHistory[i];
+          totalSeconds += running[i] ? 900L : 0L;
           dirreqWritten += dirreqStats[i] ? writeHistory[i] : 0L;
           dirreqRead += dirreqStats[i] ? readHistory[i] : 0L;
+          dirreqSeconds += dirreqStats[i] && running[i] ? 900L : 0L;
           entryWritten += entryStats[i] ? writeHistory[i] : 0L;
           entryRead += entryStats[i] ? readHistory[i] : 0L;
+          entrySeconds += entryStats[i] && running[i] ? 900L : 0L;
           exitWritten += exitStats[i] ? writeHistory[i] : 0L;
           exitRead += exitStats[i] ? readHistory[i] : 0L;
+          exitSeconds += exitStats[i] && running[i] ? 900L : 0L;
           cellWritten += cellStats[i] ? writeHistory[i] : 0L;
           cellRead += cellStats[i] ? readHistory[i] : 0L;
+          cellSeconds += cellStats[i] && running[i] ? 900L : 0L;
           connBiDirectWritten += connBiDirectStats[i] ? writeHistory[i]
               : 0L;
           connBiDirectRead += connBiDirectStats[i] ? readHistory[i]
               : 0L;
+          connBiDirectSeconds += connBiDirectStats[i] && running[i] ? 900L
+              : 0L;
           bridgeWritten += bridgeStats[i] ? writeHistory[i] : 0L;
           bridgeRead += bridgeStats[i] ? readHistory[i] : 0L;
+          bridgeSeconds += bridgeStats[i] && running[i] ? 900L : 0L;
           geoipWritten += geoipStats[i] ? writeHistory[i] : 0L;
           geoipRead += geoipStats[i] ? readHistory[i] : 0L;
+          geoipSeconds += geoipStats[i] && running[i] ? 900L : 0L;
         }
-        bw.write(totalWritten + "," + totalRead + "," + dirreqWritten
-            + "," + dirreqRead + "," + entryWritten + "," + entryRead
-            + "," + exitWritten + "," + exitRead + "," + cellWritten
-            + "," + cellRead + "," + connBiDirectWritten + ","
-            + connBiDirectRead + "," + bridgeWritten + "," + bridgeRead
-            + "," + geoipWritten + "," + geoipRead + "\n");
+        bw.write(totalWritten + "," + totalRead + "," + totalSeconds + ","
+            + dirreqWritten + "," + dirreqRead + "," + dirreqSeconds + ","
+            + entryWritten + "," + entryRead + "," + entrySeconds + ","
+            + exitWritten + "," + exitRead + "," + exitSeconds + ","
+            + cellWritten + "," + cellRead + "," + cellSeconds + ","
+            + connBiDirectWritten + "," + connBiDirectRead + ","
+            + connBiDirectSeconds + "," + bridgeWritten + ","
+            + bridgeRead + "," + bridgeSeconds + "," + geoipWritten + ","
+            + geoipRead + "," + geoipSeconds + "\n");
       }
       bw.close();
     }
