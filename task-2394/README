@@ -31,7 +31,3 @@ Visualize self-reported vs. measured bandwidth of relays
 
    $ R --slave -f bandwidth-comparison.R
 
-   (Edit bandwidth-comparison.R to color urras or one of the other
-   directories specially by putting in the lines containing "purple" and
-   re-run the last command above.)
-
