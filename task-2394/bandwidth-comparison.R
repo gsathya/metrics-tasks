@@ -45,13 +45,13 @@ cdf_relays_category_votes <- function(data, category) {
                y = (1:length(consensus)) / length(consensus),
                source = "consensus",
                category = category),
-    data.frame(x = ides,
-               y = (1:length(ides)) / length(ides),
-               source = "ides",
-               category = category),
     data.frame(x = urras,
                y = (1:length(urras)) / length(urras),
                source = "urras",
+               category = category),
+    data.frame(x = ides,
+               y = (1:length(ides)) / length(ides),
+               source = "ides",
                category = category),
     data.frame(x = moria1,
                y = (1:length(moria1)) / length(moria1),
@@ -78,13 +78,12 @@ scale_x_log10("\nRatio of measured by self-reported bandwidth",
   labels = c("0.1", "1", "10")) +
 scale_y_continuous("Fraction of relays\n", limits = c(0, 1),
   formatter = "percent") +
-scale_colour_manual("",
-  breaks = c("consensus", "urras", "ides", "moria1", "gabelmoo"),
-  values = c("black", rep(alpha("black", 0.25), 4))) +
-# values = c("black", alpha("purple", 0.5), rep(alpha("black", 0.25), 3))) +
+scale_colour_manual("", c("consensus" = "black",
+  "urras" = alpha("purple", 0.5), "ides" = alpha("red", 0.5),
+  "moria1" = alpha("green", 0.5), "gabelmoo" = alpha("blue", 0.5))) +
 geom_vline(xintercept = 1, legend = FALSE, linetype = "dotted") +
 opts(title = paste("Measured vs. self-reported bandwidth ratios in",
-  "consensus and votes\n"), legend.position = "none")
+  "consensus and votes\n"), legend.position = "right")
 ggsave(filename = "bandwidth-comparison-relays-votes.png",
   width = 8, height = 5, dpi = 150)
 
@@ -111,11 +110,11 @@ cdf_measured_category_votes <- function(data, category) {
       ratio = d$consensusbandwidth * 1000 / d$descriptorbandwidth,
       measured = d$consensusbandwidth), "consensus", category),
     wecdf(data.frame(
-      ratio = d$idesbandwidth * 1000 / d$descriptorbandwidth,
-      measured = d$idesbandwidth), "ides", category),
-    wecdf(data.frame(
       ratio = d$urrasbandwidth * 1000 / d$descriptorbandwidth,
       measured = d$urrasbandwidth), "urras", category),
+    wecdf(data.frame(
+      ratio = d$idesbandwidth * 1000 / d$descriptorbandwidth,
+      measured = d$idesbandwidth), "ides", category),
     wecdf(data.frame(
       ratio = d$moria1bandwidth * 1000 / d$descriptorbandwidth,
       measured = d$moria1bandwidth), "moria1", category),
@@ -139,13 +138,12 @@ scale_x_log10("\nRatio of measured by self-reported bandwidth",
   labels = c("0.1", "1", "10")) +
 scale_y_continuous("Fraction of measured bandwidth\n", limits = c(0, 1),
   formatter = "percent") +
-scale_colour_manual("",
-  breaks = c("consensus", "urras", "ides", "moria1", "gabelmoo"),
-  values = c("black", rep(alpha("black", 0.25), 4))) +
-# values = c("black", alpha("purple", 0.5), rep(alpha("black", 0.25), 3))) +
+scale_colour_manual("", c("consensus" = "black",
+  "urras" = alpha("purple", 0.5), "ides" = alpha("red", 0.5),
+  "moria1" = alpha("green", 0.5), "gabelmoo" = alpha("blue", 0.5))) +
 geom_vline(xintercept = 1, legend = FALSE, linetype = "dotted") +
 opts(title = paste("Measured vs. self-reported bandwidth ratios in",
-  "consensus and votes\n"), legend.position = "none")
+  "consensus and votes\n"), legend.position = "right")
 ggsave(filename = "bandwidth-comparison-measured-votes.png",
   width = 8, height = 5, dpi = 150)
 write.csv(measured_category_votes, "measured_category_votes-temp.csv",
