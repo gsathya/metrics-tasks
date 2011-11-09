@@ -40,27 +40,34 @@ cdf_relays_category_votes <- function(data, category) {
   urras <- sort(d$urrasbandwidth * 1000 / d$descriptorbandwidth)
   moria1 <- sort(d$moria1bandwidth * 1000 / d$descriptorbandwidth)
   gabelmoo <- sort(d$gabelmoobandwidth * 1000 / d$descriptorbandwidth)
-  d <- rbind(
-    data.frame(x = consensus,
+  d <- data.frame(x = consensus,
                y = (1:length(consensus)) / length(consensus),
                source = "consensus",
-               category = category),
-    data.frame(x = urras,
+               category = category)
+  if (length(urras) > 0) {
+    d <- rbind(d, data.frame(x = urras,
                y = (1:length(urras)) / length(urras),
                source = "urras",
-               category = category),
-    data.frame(x = ides,
+               category = category))
+  }
+  if (length(ides) > 0) {
+    d <- rbind(d, data.frame(x = ides,
                y = (1:length(ides)) / length(ides),
                source = "ides",
-               category = category),
-    data.frame(x = moria1,
+               category = category))
+  }
+  if (length(moria1) > 0) {
+    d <- rbind(d, data.frame(x = moria1,
                y = (1:length(moria1)) / length(moria1),
                source = "moria1",
-               category = category),
-    data.frame(x = gabelmoo,
+               category = category))
+  }
+  if (length(gabelmoo) > 0) {
+    d <- rbind(d, data.frame(x = gabelmoo,
                y = (1:length(gabelmoo)) / length(gabelmoo),
                source = "gabelmoo",
                category = category))
+  }
   d
 }
 relays_category_votes <- rbind(
