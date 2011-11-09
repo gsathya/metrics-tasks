@@ -21,7 +21,7 @@ public class ParseDescriptors {
         consensuses.put(filename, file);
       } else if (filename.endsWith("-votes")) {
         votes.put(filename, file);
-      } else if (filename.endsWith("-descriptors")) {
+      } else if (filename.endsWith("-serverdesc")) {
         descriptors.put(filename, file);
       }
     }
@@ -90,7 +90,7 @@ public class ParseDescriptors {
 
       /* Parse referenced server descriptors to learn about exit policies
        * and reported bandwidths. */
-      String descriptorsFilename = consensusTimestamp + "-descriptors";
+      String descriptorsFilename = consensusTimestamp + "-serverdesc";
       Map<String, String> parsedDescriptors =
           new HashMap<String, String>();
       if (descriptors.containsKey(descriptorsFilename)) {
