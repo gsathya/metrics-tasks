@@ -40,6 +40,7 @@ cdf_relays_category_votes <- function(data, category) {
   urras <- sort(d$urrasbandwidth * 1000 / d$descriptorbandwidth)
   moria1 <- sort(d$moria1bandwidth * 1000 / d$descriptorbandwidth)
   gabelmoo <- sort(d$gabelmoobandwidth * 1000 / d$descriptorbandwidth)
+  maatuska <- sort(d$maatuskabandwidth * 1000 / d$descriptorbandwidth)
   d <- data.frame(x = consensus,
                y = (1:length(consensus)) / length(consensus),
                source = "consensus",
@@ -68,6 +69,12 @@ cdf_relays_category_votes <- function(data, category) {
                source = "gabelmoo",
                category = category))
   }
+  if (length(maatuska) > 0) {
+    d <- rbind(d, data.frame(x = maatuska,
+               y = (1:length(maatuska)) / length(maatuska),
+               source = "maatuska",
+               category = category))
+  }
   d
 }
 relays_category_votes <- rbind(
@@ -87,7 +94,8 @@ scale_y_continuous("Fraction of relays\n", limits = c(0, 1),
   formatter = "percent") +
 scale_colour_manual("", c("consensus" = "black",
   "urras" = alpha("purple", 0.5), "ides" = alpha("red", 0.5),
-  "moria1" = alpha("green", 0.5), "gabelmoo" = alpha("blue", 0.5))) +
+  "moria1" = alpha("green", 0.5), "gabelmoo" = alpha("blue", 0.5),
+  "maatuska" = alpha("orange", 0.5))) +
 geom_vline(xintercept = 1, legend = FALSE, linetype = "dotted") +
 opts(title = paste("Measured vs. self-reported bandwidth ratios in",
   "consensus and votes\n"), legend.position = "right")
@@ -127,7 +135,10 @@ cdf_measured_category_votes <- function(data, category) {
       measured = d$moria1bandwidth), "moria1", category),
     wecdf(data.frame(
       ratio = d$gabelmoobandwidth * 1000 / d$descriptorbandwidth,
-      measured = d$gabelmoobandwidth), "gabelmoo", category))
+      measured = d$gabelmoobandwidth), "gabelmoo", category),
+    wecdf(data.frame(
+      ratio = d$maatuskabandwidth * 1000 / d$descriptorbandwidth,
+      measured = d$maatuskabandwidth), "maatuska", category))
   d
 }
 measured_category_votes <- rbind(
@@ -147,7 +158,8 @@ scale_y_continuous("Fraction of measured bandwidth\n", limits = c(0, 1),
   formatter = "percent") +
 scale_colour_manual("", c("consensus" = "black",
   "urras" = alpha("purple", 0.5), "ides" = alpha("red", 0.5),
-  "moria1" = alpha("green", 0.5), "gabelmoo" = alpha("blue", 0.5))) +
+  "moria1" = alpha("green", 0.5), "gabelmoo" = alpha("blue", 0.5),
+  "maatuska" = alpha("orange", 0.5))) +
 geom_vline(xintercept = 1, legend = FALSE, linetype = "dotted") +
 opts(title = paste("Measured vs. self-reported bandwidth ratios in",
   "consensus and votes\n"), legend.position = "right")

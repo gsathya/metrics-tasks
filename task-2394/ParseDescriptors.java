@@ -42,6 +42,8 @@ public class ParseDescriptors {
         "moria1");
     bandwidthAuthorities.put("ED03BB616EB2F60BEC80151114BB25CEF515B226",
         "gabelmoo");
+    bandwidthAuthorities.put("49015F787433103580E3B66A1707A00E60F2D15B",
+        "maatuska");
     BufferedWriter bw = new BufferedWriter(new FileWriter(
         "bandwidth-comparison.csv"));
     bw.write("validafter,fingerprint,nickname,category,"
