@@ -1,6 +1,12 @@
 Visualize self-reported vs. measured bandwidth of relays
 ========================================================
 
+You can either
+
+ - Run plot.sh.
+
+or run the steps manually:
+
  - Download a single consensus and all referenced votes and server
    descriptors from the metrics website, e.g.,
 
