@@ -1,8 +1,8 @@
 #!/bin/bash
 COMMONS="commons-codec-1.4.jar"
-CURRENT=`date -u +%Y-%m-%d-%H-00-00`
+CURRENT=`date -d'30 minutes ago' -u +%Y-%m-%d-%H-00-00`
 
-if [ ! -f commons-codec-1.4.jar ]; then
+if [ ! -f $COMMONS ]; then
   echo "$COMMONS not found.  Please download Apache Commons Codec 1.4."
   exit 1
 fi
