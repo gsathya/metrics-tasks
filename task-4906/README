@@ -1,0 +1,19 @@
+Download and extract extra-info descriptors published by the directory
+authorities.  Put them in an in/ subdirectory.
+
+  $ grep -REil "^extra-info gabelmoo|^extra-info moria1|^extra-info tor26|
+    ^extra-info ides|^extra-info dannenberg|^extra-info urras|
+    ^extra-info maatuska|^extra-info dizum" extra-infos-20??-?? |
+    xargs -I{} mv {} in/
+
+Put metrics-lib's descriptor.jar in lib/.
+
+Run the Java program.
+
+  $ javac -cp lib/descriptor.jar Eval.java
+  $ java -cp .:lib/descriptor.jar Eval
+
+Run R.
+
+  $ R --slave -f eval.R
+
