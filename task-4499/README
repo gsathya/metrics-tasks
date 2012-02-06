@@ -1,0 +1,56 @@
+1  Generating sample bridge descriptors
+=======================================
+
+This is a simple Java class to generate sample bridge descriptors for
+metrics-db and BridgeDB load tests.
+
+==========================================================================
+======== NOTE THAT THE OUTPUT TARBALL CONTENTS ARE NOT SANITIZED! ========
+==========================================================================
+
+The changes are only sufficient to trick metrics-db and BridgeDB that
+bridges are distinct.  Descriptors may still contain original IP addresses
+in exit policies and other contact information.  Sanitized descriptors
+could not be used as input, because they may have skewed results too much.
+
+Here's how you generate sample bridge descriptors from original
+descriptors.
+
+Extract a non-sanitized bridge descriptor tarball to in/, so that there
+are four files:
+
+    in/bridge-descriptors
+    in/cached-extrainfo.new
+    in/cached-extrainfo
+    in/networkstatus-bridges
+
+Download the Apache Commons Codec .jar file and put in the root directory,
+e.g.,
+
+    commons-codec-1.4.jar
+
+Compile the Java class:
+
+    $ javac -cp commons-codec-1.4.jar \
+      GenerateSampleBridgeDescriptorTarballs.java
+
+Run the Java class to generate sample data up to a factor of 256 times the
+descriptors in the in/ directory:
+
+    $ java -cp .:commons-codec-1.4.jar \
+      GenerateSampleBridgeDescriptorTarballs in out 256
+
+Find the generated sample data in the out/ directory.
+
+
+2  Building the tech report
+===========================
+
+Generate the graph:
+
+  $ R --slave -f bridge-scaling.R
+
+Build the PDF:
+
+  $ pdflatex bridge-scaling.tex
+

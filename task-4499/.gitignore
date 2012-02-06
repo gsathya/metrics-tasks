@@ -1,0 +1,9 @@
+*.class
+*.jar
+in/
+out/
+*.png
+*.aux
+*.log
+*.pdf
+
