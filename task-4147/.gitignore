@@ -1,0 +1,13 @@
+in/
+out/
+status/
+*.jar
+*.class
+.classpath
+.project
+.settings/
+*.csv
+*.pdf
+*.png
+*.swp
+

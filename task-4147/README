@@ -1,0 +1,37 @@
+Answer the question what fraction of bytes written by relays with the Exit
+flag could have used a different address for exiting than the relay used
+for registering in the Tor network.
+==========================================================================
+
+Clone the metrics-lib repository, create the descriptor.jar file, and put
+it in this directory.
+
+Obtain the Apache Commons Codec 1.4 .jar file commons-codec-1.4.jar and
+put it in this directory.
+
+Download the metrics tarballs containing consensuses, extra-info
+descriptors, and exit lists for a common time period.  Note that the first
+and last 2 days of the period won't be usable.  Extract the tarballs and
+put them in in/consensuses/, in/extra-infos/, and in/exit-lists/ in this
+directory.
+
+Compile the Java class:
+
+  $ javac -cp descriptor.jar AnalyzeDifferentExitAddress.java
+
+Run the Java class:
+
+  $ java -cp descriptor.jar:commons-codec-1.4.jar:. \
+    AnalyzeDifferentExitAddress
+
+In order to re-run parts of the analysis, delete files in status/ or the
+results file in out/.
+
+Aggregate the results using R and ggplot2:
+
+  $ R --slave -f different-exit-address-1.R
+
+Draw graphs using R and ggplot2:
+
+  $ R --slave -f different-exit-address-2.R
+
