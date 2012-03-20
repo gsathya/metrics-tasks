@@ -1,0 +1,24 @@
+Extract client speed trends from download times of network status
+consensuses.
+==========================================================================
+
+Clone the metrics-lib repository, create the descriptor.jar file, and put
+it in this directory.
+
+Obtain the Apache Commons Codec 1.4 .jar file commons-codec-1.4.jar and
+put it in this directory.
+
+Download metrics tarballs containing extra-info descriptors.  Extract the
+tarballs and put them in in/extra-infos/ in this directory.
+
+Compile and run the Java class:
+
+  $ ./run.sh
+
+In order to re-run parts of the analysis, delete files in status/ or the
+results file in out/.
+
+Draw graphs using R and ggplot2:
+
+  $ R --slave -f client-speed-trends.R
+

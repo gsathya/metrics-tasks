@@ -1,0 +1,8 @@
+in/
+status/
+out/
+*.pdf
+*.jar
+*.class
+*.png
+
