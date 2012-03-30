@@ -31,13 +31,12 @@ import org.torproject.descriptor.ServerDescriptor;
  * - Extract server descriptors to in/.
  * - Clone metrics-lib, run `ant jar`, and copy descriptor.jar to this
  *   directory.
- * - Download Apache Commons Codec jar file commons-codec-1.4.jar and put
- *   it in this directory.
+ * - Download Apache Commons Codec and Compress jar files
+ *   commons-codec-1.4.jar and commons-compress-1.3.jar and put them in
+ *   this directory.
  * - Download BouncyCastle 1.47 jar files bcprov-jdk15on-147.jar and
  *   bcpkix-jdk15on-147.jar and put them in this directory.
- * - Compile and run this class:
- *   $ javac -cp descriptor.jar:commons-codec-1.4.jar:bcprov-jdk15on-147.jar:bcpkix-jdk15on-147.jar VerifyServerDescriptors.java
- *   $ java -cp descriptor.jar:commons-codec-1.4.jar:bcprov-jdk15on-147.jar:bcpkix-jdk15on-147.jar:. VerifyServerDescriptors
+ * - Compile and run this class: ./run.sh.
  */
 public class VerifyServerDescriptors {
   public static void main(String[] args) throws Exception {
