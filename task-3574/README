@@ -1,0 +1,23 @@
+Extract bridge fingerprints and byte histories from extra-info
+descriptors:
+
+  $ grep -hRE "^extra-info|^write-history|^read-history" extra-infos >
+        bridge-bandwidth-histories-raw.txt
+
+Convert the output in something we can sort by fingerprint:
+
+  $ javac OneLinePerDescriptor.java && java OneLinePerDescriptor
+
+Sort by fingerprint and filter out duplicates:
+
+  $ sort bridge-bandwidth-histories-by-fingerprint.txt | uniq >
+        bridge-bandwidth-histories-sorted.txt
+
+Aggregate bytes per day:
+
+  $ javac AggregatePerDay.java && java AggregatePerDay
+
+Plot graphs:
+
+  $ R --slave -f eval.R
+

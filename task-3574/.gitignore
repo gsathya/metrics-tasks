@@ -1,0 +1,6 @@
+*.txt
+extra-infos/
+*.csv
+*.class
+*.pdf
+
