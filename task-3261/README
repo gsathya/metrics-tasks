@@ -1,4 +1,4 @@
-$ javac AnalyzeStatsCoverage.java
-$ java -Xmx4g AnalyzeStatsCoverage
+$ javac -cp commons-codec-1.4.jar AnalyzeStatsCoverage.java
+$ java -cp commons-codec-1.4.jar.: -Xmx4g AnalyzeStatsCoverage
 $ R --slave -f stats-coverage.R
 
