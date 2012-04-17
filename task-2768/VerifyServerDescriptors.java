@@ -52,6 +52,12 @@ public class VerifyServerDescriptors {
     int processedDescriptors = 0, verifiedDescriptors = 0;
     while (descriptorFiles.hasNext()) {
       DescriptorFile descriptorFile = descriptorFiles.next();
+      if (descriptorFile.getException() != null) {
+        System.err.println("Could not read/parse descriptor file "
+            + descriptorFile.getFileName() + ": "
+            + descriptorFile.getException().getMessage());
+        continue;
+      }
       if (descriptorFile.getDescriptors() == null) {
         continue;
       }
