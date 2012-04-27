@@ -1,4 +1,36 @@
-$ javac -cp commons-codec-1.4.jar AnalyzeStatsCoverage.java
-$ java -cp commons-codec-1.4.jar.: -Xmx4g AnalyzeStatsCoverage
-$ R --slave -f stats-coverage.R
+What fraction of our bridges are not reporting usage statistics?
+================================================================
+
+Usage:
+
+1. Put metrics tarballs into a directory called in/.  The best parsing
+   performance can be achieved by decompressing tarballs without
+   extracting them.  The bridge-descriptors-* and consensuses-* tarballs
+   are required for this analysis.
+
+2. Clone metrics-lib.git, build descriptor.jar, and put it in this
+   directory.
+
+3. Download Apache Commons Codec and Compress and put the .jar files in
+   this directory.
+
+4. Parse descriptors and write all relevant parts to one file per bridge:
+   $ javac
+       -cp commons-codec-1.4.jar:commons-compress-1.3.jar:descriptor.jar
+       ExtractDescriptorParts.java
+   $ java
+       -cp commons-codec-1.4.jar:commons-compress-1.3.jar:descriptor.jar:.
+       ExtractDescriptorParts
+
+5. Analyze descriptors parts bridge by bridge and determine whether it
+   reported bridge stats at a given time, and if not, find out why not:
+   $ javac AnalyzeDescriptorParts.java
+   $ java AnalyzeDescriptorParts
+
+6. Aggregate daily statistics that can be plotted:
+   $ javac AggregateStats.java
+   $ java AggregateStats
+
+7. Plot results:
+   $ R --slave -f plot.R
 

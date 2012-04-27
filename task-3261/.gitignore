@@ -2,6 +2,8 @@
 *.png
 *.pdf
 *.csv
+bridge-network-statuses
+parse-history
 in/
 temp/
 *.jar
