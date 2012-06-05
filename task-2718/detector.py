@@ -267,15 +267,22 @@ def absolute_plot(series, minc, maxc, labels,INTERVAL, xtitle):
 If 'scoring_interval' is specifed we only consider upscore/downscore
 that happened in the latest 'scoring_interval' days.
 """
-def censor_score(series, minc, maxc, INTERVAL):
+def censor_score(series, minc, maxc, INTERVAL, scoring_interval=None):
   upscore = 0
   downscore = 0
+
+  if scoring_interval is None:
+    scoring_interval = len(series)
+  assert(len(series) >= scoring_interval)
+
   for i, v in enumerate(series):
     if i > 0 and i - INTERVAL >= 0 and series[i] != None and series[i-INTERVAL] != None and series[i-INTERVAL] != 0 and minc[i]!= None and maxc[i]!= None:
       in_minc = minc[i] * poisson.ppf(1-0.9999, series[i-INTERVAL])
       in_maxc = maxc[i] * poisson.ppf(0.9999, series[i-INTERVAL])
-      downscore += 1 if minc[i] != None and v < in_minc else 0
-      upscore += 1 if maxc[i] != None and v > in_maxc else 0
+      if (i >= (len(series) - scoring_interval)):
+        downscore += 1 if minc[i] != None and v < in_minc else 0
+        upscore += 1 if maxc[i] != None and v > in_maxc else 0
+
   return downscore, upscore
 
 def plot_target(tss, TARGET, xtitle, minx, maxx, DAYS=365, INTERV = 7):
@@ -338,6 +345,44 @@ def write_all(tss, minc, maxc, INTERVAL=7):
         ranges_file.write("%s,%s,%s,%s\n" % (tss.all_dates[i], c, minv, maxv))
   ranges_file.close()
 
+"""Write a file containing a short censorship report over the last
+'notification_period' days.
+"""
+def write_ml_report(tss, minx, maxx, INTERV, DAYS, notification_period=None):
+  if notification_period is None:
+    notification_period = DAYS
+
+  report_file = open('short_censorship_report.txt', 'w')
+  file_prologue_written = False
+
+  s = tss.get_largest(None) # no restrictions, get 'em all.
+  scores = []
+  for num, li in s:
+    ds,us = censor_score(tss.get_country_series(li)[-DAYS:], minx[-DAYS:], maxx[-DAYS:], INTERV, notification_period)
+    scores += [(ds,num, us, li)]
+  scores.sort()
+  scores.reverse()
+
+  for downscores,users_n,upscores,country_name in scores:
+    if (downscores > 0) or (upscores > 0):
+      if not file_prologue_written:
+        prologue = "=======================\n"
+        prologue += "Automatic Censorship Report for %s to %s\n" % (tss.all_dates[-notification_period], tss.all_dates[-1])
+        prologue += "=======================\n\n"
+        report_file.write(prologue)
+        file_prologue_written = True
+
+      if ((upscores > 0) and (downscores == 0)):
+        s = "We detected an unusual spike of Tor users in %s (%d upscores, %d users).\n" % \
+            (country_name, upscores, users_n)
+      else:
+        s = "We detected %d potential censorship events in %s (users: %d, upscores: %d).\n" % \
+            (downscores, country_name, users_n, upscores)
+
+      report_file.write(s + "\n")
+
+  report_file.close()
+
 def main():
   # Change these to customize script
   CSV_FILE = "direct-users.csv"
@@ -352,6 +397,9 @@ def main():
   minx, maxx = make_tendencies_minmax(l, INTERV)
   #plot_all(tss, minx, maxx, INTERV, DAYS, rdir=GRAPH_DIR)
   write_all(tss, minx, maxx, INTERV)
+
+  # Make our short report; only consider events of the last day
+  write_ml_report(tss, minx, maxx, INTERV, DAYS, 1)
 
 if __name__ == "__main__":
     main()
