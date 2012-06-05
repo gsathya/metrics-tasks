@@ -38,14 +38,14 @@
 ##  anomalies that might be indicative of censorship.
 
 # Dep: matplotlib
-from pylab import * 
+from pylab import *
 import matplotlib
 
 # Dep: numpy
-import numpy 
+import numpy
 
 # Dep: scipy
-import scipy.stats 
+import scipy.stats
 from scipy.stats.distributions import norm
 from scipy.stats.distributions import poisson
 
@@ -56,7 +56,18 @@ import os.path
 
 days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-# read the .csv file
+"""
+Represents a .csv file containing information on the number of
+connecting Tor users per country.
+
+'store': Dictionary with (<country code>, <counter>) as key, and the number of users as value.
+         <country code> can also be "date"...
+'all_dates': List of the data intervals (with default timedelta: 1 day).
+'country_codes': List of all relevant country codes.
+'MAX_INDEX': Length of store, number of country codes etc.
+'date_min': The oldest date found in the .csv.
+'date_min': The latest date found in the .csv.
+"""
 class torstatstore:
   def __init__(self, file_name):
     f = file(file_name)
@@ -72,13 +83,13 @@ class torstatstore:
             processed_val = None
             if ccode == "date":
                 try:
-                    year, month, day = int(val[:4]), int(val[5:7]), int(val[8:10])                
+                    year, month, day = int(val[:4]), int(val[5:7]), int(val[8:10])
                     processed_val = date(year, month, day)
                 except Exception, e:
                     print "Parsing error (ignoring line %s):" % j
                     print "%s" % val,e
-                    break            
-            
+                    break
+
             elif val != "NA":
                 processed_val = int(val)
             store[(ccode, i)] = processed_val
@@ -91,7 +102,7 @@ class torstatstore:
     d = date_min
     dt = timedelta(days=1)
     while d <= date_max:
-        all_dates += [d]    
+        all_dates += [d]
         d = d + dt
 
     # Save for later
@@ -102,6 +113,9 @@ class torstatstore:
     self.date_min = date_min
     self.date_max = date_max
 
+  """Return a list representing a time series of 'ccode' with respect
+  to the number of connected users.
+  """
   def get_country_series(self, ccode):
     assert ccode in self.country_codes
     series = {}
@@ -114,6 +128,10 @@ class torstatstore:
         sx += [series[d]]
     return sx
 
+  """Return an ordered list containing tuples of the form (<number of
+  users>, <country code>). The list is ordered with respect to the
+  number of users for each country.
+  """
   def get_largest(self, number):
     exclude = set(["all", "??", "date"])
     l = [(self.store[(c, self.MAX_INDEX-1)], c) for c in self.country_codes if c not in exclude]
@@ -121,6 +139,9 @@ class torstatstore:
     l.reverse()
     return l[:number]
 
+  """Return a dictionary, with <country code> as key, and the time
+  series of the country code as the value.
+  """
   def get_largest_locations(self, number):
     l = self.get_largest(number)
     res = {}
@@ -128,14 +149,16 @@ class torstatstore:
       res[ccode] = self.get_country_series(ccode)
     return res
 
-# Computes the difference between today and a number of days in the past
+"""Return a list containing lists (?) where each such list contains
+the difference in users for a time delta of 'days'
+"""
 def n_day_rel(series, days):
   rel = []
   for i, v in enumerate(series):
     if series[i] is None:
       rel += [None]
       continue
-    
+
     if i - days < 0 or series[i-days] is None or series[i-days] == 0:
       rel += [None]
     else:
@@ -175,7 +198,7 @@ def make_tendencies_minmax(l, INTERVAL = 1):
   return minx, maxx
 
 # Makes pretty plots
-def raw_plot(series, minc, maxc, labels, xtitle):    
+def raw_plot(series, minc, maxc, labels, xtitle):
     assert len(xtitle) == 3
     fname, stitle, slegend = xtitle
 
@@ -185,19 +208,19 @@ def raw_plot(series, minc, maxc, labels, xtitle):
     matplotlib.rc('font', **font)
 
     ylim( (-max(series)*0.1, max(series)*1.1) )
-    plot(labels, series, linewidth=1.0, label="Users")    
+    plot(labels, series, linewidth=1.0, label="Users")
 
     wherefill = []
     for mm,mx in zip(minc, maxc):
-      wherefill += [not (mm == None and mx == None)] 
+      wherefill += [not (mm == None and mx == None)]
       assert mm < mx or (mm == None and mx == None)
-          
+
     fill_between(labels, minc, maxc, where=wherefill, color="gray", label="Prediction")
 
     vdown = []
     vup = []
     for i,v in enumerate(series):
-      if minc[i] != None and v < minc[i]: 
+      if minc[i] != None and v < minc[i]:
         vdown += [v]
         vup += [None]
       elif maxc[i] != None and v > maxc[i]:
@@ -206,7 +229,7 @@ def raw_plot(series, minc, maxc, labels, xtitle):
       else:
         vup += [None]
         vdown += [None]
-    
+
     plot(labels, vdown, 'o', ms=10, lw=2, alpha=0.5, mfc='orange', label="Downturns")
     plot(labels, vup, 'o', ms=10, lw=2, alpha=0.5, mfc='green', label="Upturns")
 
@@ -235,9 +258,15 @@ def absolute_plot(series, minc, maxc, labels,INTERVAL, xtitle):
     else:
       in_minc += [None]
       in_maxc += [None]
-  raw_plot(series, in_minc, in_maxc, labels, xtitle)    
+  raw_plot(series, in_minc, in_maxc, labels, xtitle)
 
-# Censorship score by jurisdiction
+"""Return the number of downscores and upscores of a time series
+'series', given tendencies 'minc' and 'maxc' for the time interval
+'INTERVAL'.
+
+If 'scoring_interval' is specifed we only consider upscore/downscore
+that happened in the latest 'scoring_interval' days.
+"""
 def censor_score(series, minc, maxc, INTERVAL):
   upscore = 0
   downscore = 0
@@ -263,17 +292,17 @@ def plot_all(tss, minx, maxx, INTERV, DAYS=None, rdir="img"):
     return
 
   summary_file = file(os.path.join(rdir, "summary.txt"), "w")
-  
+
   if DAYS == None:
     DAYS = 6*31
-    
+
   s = tss.get_largest(200)
   scores = []
   for num, li in s:
     print ".",
     ds,us = censor_score(tss.get_country_series(li)[-DAYS:], minx[-DAYS:], maxx[-DAYS:], INTERV)
     # print ds, us
-    scores += [(ds,num, us, li)]  
+    scores += [(ds,num, us, li)]
   scores.sort()
   scores.reverse()
   s = "\n=======================\n"
@@ -290,6 +319,7 @@ def plot_all(tss, minx, maxx, INTERV, DAYS=None, rdir="img"):
       plot_target(tss, c,xtitle, minx, maxx, DAYS, INTERV)
   summary_file.close()
 
+"""Write a CSV report on the minimum/maximum users of each country per date."""
 def write_all(tss, minc, maxc, INTERVAL=7):
   ranges_file = file("direct-users-ranges.csv", "w")
   ranges_file.write("date,country,minusers,maxusers\n")
@@ -312,9 +342,11 @@ def main():
   # Change these to customize script
   CSV_FILE = "direct-users.csv"
   GRAPH_DIR = "img"
+  # Time interval to model connection rates.
   INTERV = 7
+  # Consider maximum DAYS days back.
   DAYS= 6 * 31
-  
+
   tss = torstatstore(CSV_FILE)
   l = tss.get_largest_locations(50)
   minx, maxx = make_tendencies_minmax(l, INTERV)
