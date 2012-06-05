@@ -297,7 +297,6 @@ def write_all(tss, minc, maxc, INTERVAL=7):
   for c in tss.country_codes:
     if c in exclude:
       continue
-    print ".",
     series = tss.get_country_series(c)
     for i, v in enumerate(series):
       if i > 0 and i - INTERVAL >= 0 and series[i] != None and series[i-INTERVAL] != None and series[i-INTERVAL] != 0 and minc[i]!= None and maxc[i]!= None:
@@ -319,7 +318,7 @@ def main():
   tss = torstatstore(CSV_FILE)
   l = tss.get_largest_locations(50)
   minx, maxx = make_tendencies_minmax(l, INTERV)
-  plot_all(tss, minx, maxx, INTERV, DAYS, rdir=GRAPH_DIR)
+  #plot_all(tss, minx, maxx, INTERV, DAYS, rdir=GRAPH_DIR)
   write_all(tss, minx, maxx, INTERV)
 
 if __name__ == "__main__":
