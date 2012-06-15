@@ -54,7 +54,18 @@ from datetime import date
 from datetime import timedelta
 import os.path
 
+# Country code -> Country names
+import country_info
+
+# write utf8 to file
+import codecs
+
 days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+def get_country_name_from_cc(country_code):
+  if (country_code.lower() in country_info.countries):
+    return country_info.countries[country_code.lower()]
+  return country_code # if we didn't find the cc in our map
 
 """
 Represents a .csv file containing information on the number of
@@ -352,7 +363,7 @@ def write_ml_report(tss, minx, maxx, INTERV, DAYS, notification_period=None):
   if notification_period is None:
     notification_period = DAYS
 
-  report_file = open('short_censorship_report.txt', 'w')
+  report_file = codecs.open('short_censorship_report.txt', 'w', 'utf-8')
   file_prologue_written = False
 
   s = tss.get_largest(None) # no restrictions, get 'em all.
@@ -363,7 +374,7 @@ def write_ml_report(tss, minx, maxx, INTERV, DAYS, notification_period=None):
   scores.sort()
   scores.reverse()
 
-  for downscores,users_n,upscores,country_name in scores:
+  for downscores,users_n,upscores,country_code in scores:
     if (downscores > 0) or (upscores > 0):
       if not file_prologue_written:
         prologue = "=======================\n"
@@ -374,10 +385,10 @@ def write_ml_report(tss, minx, maxx, INTERV, DAYS, notification_period=None):
 
       if ((upscores > 0) and (downscores == 0)):
         s = "We detected an unusual spike of Tor users in %s (%d upscores, %d users).\n" % \
-            (country_name, upscores, users_n)
+            (get_country_name_from_cc(country_code), upscores, users_n)
       else:
         s = "We detected %d potential censorship events in %s (users: %d, upscores: %d).\n" % \
-            (downscores, country_name, users_n, upscores)
+            (downscores, get_country_name_from_cc(country_code), users_n, upscores)
 
       report_file.write(s + "\n")
 
