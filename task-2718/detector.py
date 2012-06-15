@@ -301,6 +301,16 @@ def plot_target(tss, TARGET, xtitle, minx, maxx, DAYS=365, INTERV = 7):
   c = n_day_rel(ctarget, INTERV)
   absolute_plot(ctarget[-DAYS:], minx[-DAYS:], maxx[-DAYS:], tss.all_dates[-DAYS:],INTERV, xtitle = xtitle)
 
+def write_censorship_report_prologue(report_file, dates, notification_period):
+  if (notification_period == 1):
+    date_str = "%s" % (dates[-1]) # no need for date range if it's just one day
+  else:
+    date_str = "%s to %s" % (dates[-notification_period], dates[-1])
+
+  prologue = "=======================\n"
+  prologue += "Automatic Censorship Report for %s\n" % (date_str)
+  prologue += "=======================\n\n"
+  report_file.write(prologue)
 
 ## Make a league table of censorship + nice graphs
 def plot_all(tss, minx, maxx, INTERV, DAYS=None, rdir="img"):
@@ -388,10 +398,7 @@ def write_ml_report(tss, minx, maxx, INTERV, DAYS, notification_period=None):
   for downscores,users_n,upscores,country_code in scores:
     if (downscores > 0) or (upscores > 0):
       if not file_prologue_written:
-        prologue = "=======================\n"
-        prologue += "Automatic Censorship Report for %s to %s\n" % (tss.all_dates[-notification_period], tss.all_dates[-1])
-        prologue += "=======================\n\n"
-        report_file.write(prologue)
+        write_censorship_report_prologue(report_file, tss.all_dates, notification_period)
         file_prologue_written = True
 
       if ((upscores > 0) and (downscores == 0)):
