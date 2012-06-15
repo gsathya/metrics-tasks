@@ -356,6 +356,17 @@ def write_all(tss, minc, maxc, INTERVAL=7):
         ranges_file.write("%s,%s,%s,%s\n" % (tss.all_dates[i], c, minv, maxv))
   ranges_file.close()
 
+"""Return a URL that points to a graph in metrics.tpo that displays
+the number of direct Tor users in country 'country_code', for a
+'period'-days period.
+
+Let's hope that the metrics.tpo URL scheme doesn't change often.
+"""
+def get_tor_usage_graph_url_for_cc_and_date(country_code, dates, period):
+  url = "https://metrics.torproject.org/users.html?graph=direct-users&start=%s&end=%s&country=%s&events=on&dpi=72#direct-users\n" % \
+      (dates[-period], dates[-1], country_code)
+  return url
+
 """Write a file containing a short censorship report over the last
 'notification_period' days.
 """
@@ -384,11 +395,14 @@ def write_ml_report(tss, minx, maxx, INTERV, DAYS, notification_period=None):
         file_prologue_written = True
 
       if ((upscores > 0) and (downscores == 0)):
-        s = "We detected an unusual spike of Tor users in %s (%d upscores, %d users).\n" % \
+        s = "We detected an unusual spike of Tor users in %s (%d upscores, %d users):\n" % \
             (get_country_name_from_cc(country_code), upscores, users_n)
       else:
-        s = "We detected %d potential censorship events in %s (users: %d, upscores: %d).\n" % \
+        s = "We detected %d potential censorship events in %s (users: %d, upscores: %d):\n" % \
             (downscores, get_country_name_from_cc(country_code), users_n, upscores)
+
+      # Also give out a link for the appropriate usage graph for a 90-days period.
+      s += get_tor_usage_graph_url_for_cc_and_date(country_code, tss.all_dates, 90)
 
       report_file.write(s + "\n")
 
