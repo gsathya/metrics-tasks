@@ -1,6 +1,6 @@
 """
 Usage - python pyentropy.py <consensus-dir> <output-file>
-Output - A CSV file of the format <valid-after>,<entropy>
+Output - A CSV file of the format <valid-after>,<entropy for all nodes>,<entropy for exitnodes>,<entropy for guardnodes>
 rsync -arz --delete metrics.torproject.org::metrics-recent/relay-descriptors/consensuses in
 """
 
@@ -20,6 +20,8 @@ class Router:
         self.bandwidth = None
         self.flags = None
         self.probability = None
+        self.is_exit = None
+        self.is_guard = None
         
     def add(self, key, values):
         if key == 'r':
@@ -28,7 +30,11 @@ class Router:
            self.bandwidth = int(values[0].split('=')[1])
         if key == 's':
            self.flags = values
-           
+           if "Exit" in self.flags:
+               self.is_exit = True
+           if "Guard" in self.flags:
+               self.is_guard = True
+        
 def run(file_name):
     routers = []
         # parse consensus
@@ -47,11 +53,22 @@ def run(file_name):
             elif key in KEYS:
                 router.add(key, values)
                 
-        # build hash table with freq. distribution
-        # key: bandwidth
-        # value: number of bandwidth's observations
-    bw_dist = {}
+    # build hash table with freq. distribution
+    # key: bandwidth
+    # value: number of bandwidth's observations
+    
+    bw_dist, bw_dist_exit, bw_dist_guard = {}, {}, {}
     for router in routers:
+        if router.is_exit:
+            if bw_dist_exit.has_key(router.bandwidth):
+                bw_dist_exit[router.bandwidth] += 1
+            else:
+                bw_dist_exit[router.bandwidth] = 1
+        if router.is_guard:
+            if bw_dist_guard.has_key(router.bandwidth):
+                bw_dist_guard[router.bandwidth] += 1
+            else:
+                bw_dist_guard[router.bandwidth] = 1
         if bw_dist.has_key(router.bandwidth):
             bw_dist[router.bandwidth] += 1
         else:
@@ -61,13 +78,23 @@ def run(file_name):
         print "Error: amount of routers must be > 0."
         return;
     
-    entropy = 0.0
+    entropy, entropy_exit, entropy_guard = 0.0, 0.0, 0.0
     for bw in bw_dist.iterkeys():
-            # p = probability of one particular bandwidth
+        # p = probability of one particular bandwidth
         p = float(bw_dist[bw]) / len(routers)
         entropy += -(p * math.log(p, 2))
+        
+    for bw in bw_dist_exit.iterkeys():
+        # p = probability of one particular bandwidth
+        p = float(bw_dist[bw]) / len(routers)
+        entropy_exit += -(p * math.log(p, 2))
+        
+    for bw in bw_dist_guard.iterkeys():
+        # p = probability of one particular bandwidth
+        p = float(bw_dist[bw]) / len(routers)
+        entropy_guard += -(p * math.log(p, 2))
     
-    return ",".join([valid_after, str(entropy)])
+    return ",".join([valid_after, str(entropy), str(entropy_exit), str(entropy_guard)])
 
 def usage():
     print "Usage - python pyentropy.py <consensus-dir> <output-file>"
