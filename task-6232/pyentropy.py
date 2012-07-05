@@ -12,7 +12,6 @@ from decimal import *
 RESULTS = []
 KEYS = ['r','s','v','w','p','m']
 
-
 class Router:
     def __init__(self):
         self.lines = []
@@ -22,7 +21,7 @@ class Router:
         self.probability = None
         self.is_exit = None
         self.is_guard = None
-        
+
     def add(self, key, values):
         if key == 'r':
            self.nick = values[0]
@@ -34,7 +33,7 @@ class Router:
                self.is_exit = True
            if "Guard" in self.flags:
                self.is_guard = True
-        
+
 def run(file_name):
     routers = []
         # parse consensus
@@ -52,48 +51,35 @@ def run(file_name):
                 valid_after = ' '.join(values)
             elif key in KEYS:
                 router.add(key, values)
-                
-    # build hash table with freq. distribution
-    # key: bandwidth
-    # value: number of bandwidth's observations
-    
-    bw_dist, bw_dist_exit, bw_dist_guard = {}, {}, {}
+
+    totalBW, totalExitBW, totalGuardBW = 0, 0, 0
     for router in routers:
-        if router.is_exit:
-            if bw_dist_exit.has_key(router.bandwidth):
-                bw_dist_exit[router.bandwidth] += 1
-            else:
-                bw_dist_exit[router.bandwidth] = 1
+        totalBW += router.bandwidth
         if router.is_guard:
-            if bw_dist_guard.has_key(router.bandwidth):
-                bw_dist_guard[router.bandwidth] += 1
-            else:
-                bw_dist_guard[router.bandwidth] = 1
-        if bw_dist.has_key(router.bandwidth):
-            bw_dist[router.bandwidth] += 1
-        else:
-            bw_dist[router.bandwidth] = 1
-    
+            totalGuardBW += router.bandwidth
+        if router.is_exit:
+            totalExitBW += router.bandwidth
+
     if len(routers) <= 0:
         print "Error: amount of routers must be > 0."
         return;
-    
+
     entropy, entropy_exit, entropy_guard = 0.0, 0.0, 0.0
-    for bw in bw_dist.iterkeys():
-        # p = probability of one particular bandwidth
-        p = float(bw_dist[bw]) / len(routers)
-        entropy += -(p * math.log(p, 2))
-        
-    for bw in bw_dist_exit.iterkeys():
-        # p = probability of one particular bandwidth
-        p = float(bw_dist[bw]) / len(routers)
-        entropy_exit += -(p * math.log(p, 2))
-        
-    for bw in bw_dist_guard.iterkeys():
-        # p = probability of one particular bandwidth
-        p = float(bw_dist[bw]) / len(routers)
-        entropy_guard += -(p * math.log(p, 2))
-    
+    for router in routers:
+        p = float(router.bandwidth) / float(totalBW)
+        if p != 0:
+            entropy += -(p * math.log(p, 2))
+
+        if router.is_guard:
+            p = float(router.bandwidth) / float(totalGuardBW)
+            if p != 0:
+                entropy_exit += -(p * math.log(p, 2))
+
+        if router.is_exit:
+            p = float(router.bandwidth) / float(totalExitBW)
+            if p != 0:
+                entropy_guard += -(p * math.log(p, 2))
+
     return ",".join([valid_after, str(entropy), str(entropy_exit), str(entropy_guard)])
 
 def usage():
