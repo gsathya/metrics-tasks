@@ -61,8 +61,8 @@ def run(file_name):
             totalExitBW += router.bandwidth
 
     if len(routers) <= 0:
-        print "Error: amount of routers must be > 0."
-        return;
+        print "Error: Old consensus file. Not able to parse."
+        return
 
     entropy, entropy_exit, entropy_guard = 0.0, 0.0, 0.0
     for router in routers:
@@ -92,4 +92,5 @@ if __name__ == "__main__":
         with open(sys.argv[2], 'w') as f:
             for file_name in os.listdir(sys.argv[1]):
                 string = run(os.path.join(sys.argv[1], file_name))
-                f.write("%s\n" % (string))
+                if string:
+                    f.write("%s\n" % (string))
