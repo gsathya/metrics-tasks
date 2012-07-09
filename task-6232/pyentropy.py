@@ -61,7 +61,6 @@ def run(file_name):
             totalExitBW += router.bandwidth
 
     if len(routers) <= 0:
-        print "Error: Old consensus file. Not able to parse."
         return
 
     entropy, entropy_exit, entropy_guard = 0.0, 0.0, 0.0
