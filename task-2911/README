@@ -137,7 +137,5 @@ Plot the graphs for the tech report:
 
   $ R --slave -f stability.R
 
-Compile the tech report:
-
-  $ pdflatex report.tex
+The report sources are in tech-reports.git/2011/relay-stability/.
 
