@@ -5,5 +5,5 @@ $ javac DetectBridgeBlockings.java && java DetectBridgeBlockings
 
 $ R --slave -f bridge-blockings.R
 
-$ pdflatex blocking.tex
+The report sources are in tech-reports.git/2011/bridge-blockings/.
 
