@@ -23,7 +23,5 @@ Plot the results:
 
   $ R --slave -f stability.R
 
-Compile the report:
-
-  $ pdflatex report.tex
+The report sources are in tech-reports.git/2011/bridge-stability/.
 
