@@ -72,12 +72,12 @@ def run(file_name):
         if router.is_guard:
             p = float(router.bandwidth) / float(totalGuardBW)
             if p != 0:
-                entropy_exit += -(p * math.log(p, 2))
+                entropy_guard += -(p * math.log(p, 2))
 
         if router.is_exit:
             p = float(router.bandwidth) / float(totalExitBW)
             if p != 0:
-                entropy_guard += -(p * math.log(p, 2))
+                entropy_exit += -(p * math.log(p, 2))
 
     return ",".join([valid_after, str(entropy), str(entropy_exit), str(entropy_guard)])
 
