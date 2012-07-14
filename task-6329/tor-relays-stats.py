@@ -9,6 +9,7 @@
 import json
 import operator
 import sys
+import os.path
 
 class RelayStats(object):
     def __init__(self):
@@ -118,6 +119,8 @@ can issue the following command:
     sys.exit(1)
 
 if '__main__' == __name__:
+    if not os.path.exists('details.json'):
+        usage()
     if len(sys.argv) == 1:
         usage()
     func = OUTPUTS.get(sys.argv[1], None)
