@@ -40,7 +40,8 @@ class RelayStats(object):
             relays.append(relay)
         return relays
 
-    def output_countries(self, flags=''):
+    def output_countries(self, count='10', flags=''):
+        count = int(count)
         flags = flags.split()
         relays = self.get_relays(flags)
         countries = {}
@@ -53,10 +54,11 @@ class RelayStats(object):
         ranking = sorted(countries.iteritems(), key=operator.itemgetter(1))
         ranking.reverse()
         total_consensus_weight = self.get_total_consensus_weight(relays)
-        for country, weight in ranking:
+        for country, weight in ranking[:count]:
             print "%3.2f%% %s" % (weight * 100.0 / total_consensus_weight, country)
 
-    def output_as_sets(self, flags='', countries=''):
+    def output_as_sets(self, count='10', flags='', countries=''):
+        count = int(count)
         flags = flags.split()
         relays = self.get_relays(flags, countries)
         as_sets = {}
@@ -69,7 +71,7 @@ class RelayStats(object):
         total_consensus_weight = self.get_total_consensus_weight(relays)
         ranking = sorted(as_sets.iteritems(), key=operator.itemgetter(1))
         ranking.reverse()
-        for as_set, weight in ranking:
+        for as_set, weight in ranking[:count]:
             print "%3.4f%% %s" % (weight * 100.0 / total_consensus_weight, as_set)
 
     def output_top(self, count='10', flags='', countries=''):
@@ -93,9 +95,9 @@ def usage():
     print >>sys.stderr, """Usage: %(progname)s <output> [args ...]
 
 Where <output> is one of:
- - countries [FLAGS]
+ - countries [COUNT] [FLAGS]
    relative percentage of the consensus in each countries
- - as-sets [FLAGS] [COUNTRIES]
+ - as-sets [COUNT] [FLAGS] [COUNTRIES]
    relative percentage of the consensus in each AS sets
  - top [COUNT] [FLAGS] [COUNTRIES]
    top relays according their place in the whole consensus
@@ -104,8 +106,8 @@ Examples:
 
  - To get the top five exit nodes in France:
    %(progname)s top 5 Exit fr
- - To get weights of each AS of all relays in Germany:
-   %(progname)s as-sets Running de
+ - To get weights of the top ten AS of all relays in Germany:
+   %(progname)s as-sets 10 Running de
 """ % { 'progname': sys.argv[0] }
     sys.exit(1)
 
