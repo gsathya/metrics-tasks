@@ -31,7 +31,7 @@ This script expect to have a file called 'details.json' in the
 current directory. In order to retrieve the needed data, one
 can issue the following command:
 
-    curl -o details.json https://onionoo.torproject.org/details
+    curl -o details.json 'https://onionoo.torproject.org/details?type=relay&running=true'
 
 Dependencies
 ------------
