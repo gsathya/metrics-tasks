@@ -108,6 +108,12 @@ Examples:
    %(progname)s top 5 Exit fr
  - To get weights of the top ten AS of all relays in Germany:
    %(progname)s as-sets 10 Running de
+
+This script expect to have a file called 'details.json' in the
+current directory. In order to retrieve the needed data, one
+can issue the following command:
+
+    curl -o details.json 'https://onionoo.torproject.org/details?type=relay&running=true'
 """ % { 'progname': sys.argv[0] }
     sys.exit(1)
 
