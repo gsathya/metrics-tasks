@@ -86,7 +86,6 @@ class RelayStats(object):
         top = sorted(relays, key=operator.itemgetter('consensus_weight'))
         total_consensus_weight = self.get_total_consensus_weight()
         for relay in top[-count:]:
-            
             print "%3.4f%% %-20s %s" % (relay['consensus_weight'] * 100.0 / total_consensus_weight, relay['nickname'], relay['fingerprint'])
 
 OUTPUTS = {
