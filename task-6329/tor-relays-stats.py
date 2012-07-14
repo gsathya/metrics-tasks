@@ -50,8 +50,10 @@ class RelayStats(object):
               countries[country] = 0
             countries[country] += relay['consensus_weight']
 
+        ranking = sorted(countries.iteritems(), key=operator.itemgetter(1))
+        ranking.reverse()
         total_consensus_weight = self.get_total_consensus_weight(relays)
-        for country, weight in sorted(countries.iteritems(), key=operator.itemgetter(1)):
+        for country, weight in ranking:
             print "%3.2f%% %s" % (weight * 100.0 / total_consensus_weight, country)
 
     def output_as_sets(self, flags='', countries=''):
@@ -65,16 +67,20 @@ class RelayStats(object):
             as_sets[as_set] += relay['consensus_weight']
 
         total_consensus_weight = self.get_total_consensus_weight(relays)
-        for as_set, weight in sorted(as_sets.iteritems(), key=operator.itemgetter(1)):
+        ranking = sorted(as_sets.iteritems(), key=operator.itemgetter(1))
+        ranking.reverse()
+        for as_set, weight in ranking:
             print "%3.4f%% %s" % (weight * 100.0 / total_consensus_weight, as_set)
 
     def output_top(self, count='10', flags='', countries=''):
         count = int(count)
         flags = flags.split()
         relays = self.get_relays(flags, countries)
-        top = sorted(relays, key=operator.itemgetter('consensus_weight'))
+
         total_consensus_weight = self.get_total_consensus_weight()
-        for relay in top[-count:]:
+        ranking = sorted(relays, key=operator.itemgetter('consensus_weight'))
+        ranking.reverse()
+        for relay in ranking[:count]:
             print "%3.4f%% %-20s %s" % (relay['consensus_weight'] * 100.0 / total_consensus_weight, relay['nickname'], relay['fingerprint'])
 
 OUTPUTS = {
