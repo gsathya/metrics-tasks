@@ -74,7 +74,7 @@ class RelayStats(object):
         for as_set, weight in ranking[:count]:
             print "%3.4f%% %s" % (weight * 100.0 / total_consensus_weight, as_set)
 
-    def output_top(self, count='10', flags='', countries=''):
+    def output_relays(self, count='10', flags='', countries=''):
         count = int(count)
         flags = flags.split()
         relays = self.get_relays(flags, countries)
@@ -88,7 +88,7 @@ class RelayStats(object):
 OUTPUTS = {
   'countries': 'output_countries',
   'as-sets': 'output_as_sets',
-  'top': 'output_top',
+  'relays': 'output_relays',
 }
 
 def usage():
@@ -99,8 +99,8 @@ Where <output> is one of:
    relative percentage of the consensus in each countries
  - as-sets [COUNT] [FLAGS] [COUNTRIES]
    relative percentage of the consensus in each AS sets
- - top [COUNT] [FLAGS] [COUNTRIES]
-   top relays according their place in the whole consensus
+ - relays [COUNT] [FLAGS] [COUNTRIES]
+   list relays ranked by their place in the whole consensus
 
 Examples:
 
