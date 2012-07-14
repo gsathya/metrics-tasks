@@ -1,16 +1,5 @@
 #!/usr/bin/env python
 #
-# tor-relay-stats.py: extract some statistics about relays
-#
-# This script expect to have a file called 'details.json' in the
-# current directory. In order to retrieve the needed data, one
-# can issue the following command:
-#
-#     curl -o details.json https://onionoo.torproject.org/details
-#
-#
-# Author: delber@riseup.net
-#
 # This program is free software. It comes without any warranty, to
 # the extent permitted by applicable law. You can redistribute it
 # and/or modify it under the terms of the Do What The Fuck You Want
