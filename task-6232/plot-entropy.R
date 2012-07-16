@@ -10,7 +10,7 @@ d <- melt(d, "date")
 ggplot(d, aes(x = date, y = value, colour = variable)) +
 geom_line() +
 scale_x_date(name = "\nDate") +
-scale_y_continuous(name = "Entropy\n") +
+scale_y_continuous(name = "Degree of Anonymity\n") +
 scale_colour_hue(name = "Relays",
   breaks = c("all", "exit", "guard", "country"),
   labels = c("All relays", "All exits", "All guards", "All countries"))
