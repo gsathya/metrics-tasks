@@ -36,7 +36,7 @@ class RelayStats(object):
                 continue
             if set(flags) & set(relay['flags']) != set(flags):
                 continue
-            if countries and not relay.get('country', '') in countries:
+            if countries and not relay.get('country', ' ') in countries:
                 continue
             if as_sets and not relay.get('as_number', ' ') in as_sets:
                 continue
