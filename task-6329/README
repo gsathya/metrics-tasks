@@ -14,7 +14,7 @@ Where <output> is one of:
    relative percentage of the consensus in each countries
  - as-sets [COUNT] [FLAGS] [COUNTRIES]
    relative percentage of the consensus in each AS sets
- - relays [COUNT] [FLAGS] [COUNTRIES]
+ - relays [COUNT] [FLAGS] [COUNTRIES] [AS_SETS]
    list relays ranked by their place in the whole consensus
 
 Examples:
