@@ -109,7 +109,7 @@ class RelayStats(object):
         selection_consensus_weight = 0
         for relay in ranking[:count]:
             selection_consensus_weight += relay['consensus_weight']
-            print "%8.4f%% %-19s %-2s %-4s %-5s %s %-7s %s" % (relay['consensus_weight'] * 100.0 / total_consensus_weight, relay['nickname'], relay['fingerprint'], 'Exit' if 'Exit' in set(relay['flags']) else '', 'Guard' if 'Guard' in set(relay['flags']) else '', relay.get('country', ''), relay.get('as_number', ''), relay.get('as_name', ''))
+            print "%8.4f%% %-19s %-2s %-4s %-5s %s %-7s %s" % (relay['consensus_weight'] * 100.0 / total_consensus_weight, relay['nickname'], relay['fingerprint'], 'Exit' if 'Exit' in set(relay['flags']) else '', 'Guard' if 'Guard' in set(relay['flags']) else '', relay.get('country', '  '), relay.get('as_number', ''), relay.get('as_name', ''))
         if len(ranking) > count:
             other_consensus_weight = 0
             for relay in ranking[count:]:
