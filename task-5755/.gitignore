@@ -1,0 +1,11 @@
+.classpath
+.project
+*.pdf
+bin/
+in/
+lib/
+*.csv
+*.png
+*.tar
+*.tar.bz2
+
