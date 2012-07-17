@@ -57,13 +57,16 @@ def run(file_name):
                 router.add(key, values)
 
     totalBW, totalExitBW, totalGuardBW = 0, 0, 0
+    guards_n, exits_n = 0, 0
     bw_countries = {}
     for router in routers:
         totalBW += router.bandwidth
         if router.is_guard:
             totalGuardBW += router.bandwidth
+            guards_n += 1
         if router.is_exit:
             totalExitBW += router.bandwidth
+            exits_n += 1
         if bw_countries.has_key(router.country):
             bw_countries[router.country] += router.bandwidth
         else:
@@ -90,8 +93,18 @@ def run(file_name):
         p = float(bw_countries[country]) / float(totalBW)
         if p != 0:
             entropy_country += -(p * math.log(p, 2))
-    
-    return ",".join([valid_after, str(entropy), str(entropy_exit), str(entropy_guard), str(entropy_country)])
+
+    # Entropy of uniform distribution of 'n' possible values: log(n)
+    max_entropy = math.log(len(routers), 2)
+    max_entropy_guard = math.log(guards_n, 2)
+    max_entropy_exit = math.log(exits_n, 2)
+    max_entropy_country = math.log(len(bw_countries), 2)
+
+    return ",".join([valid_after,
+                     str(entropy/max_entropy),
+                     str(entropy_exit/max_entropy_exit),
+                     str(entropy_guard/max_entropy_guard),
+                     str(entropy_country/max_entropy_country)])
 
 def usage():
     print "Usage - python pyentropy.py <consensus-dir> <output-file>"
