@@ -1,6 +1,15 @@
 """
 Usage - python pyentropy.py <consensus-dir> <output-file>
-Output - A CSV file of the format <valid-after>,<entropy for all nodes>,<entropy for exitnodes>,<entropy for guardnodes>,<entropy for countries>
+Output - A CSV file of the format (without newlines):
+         <valid-after>,
+         <entropy for all nodes>,
+         <max entropy for all nodes>,
+         <entropy for exit nodes>,
+         <max entropy for exit nodes>,
+         <entropy for guard nodes>,
+         <max entropy for guard nodes>,
+         <entropy for countries>,
+         <max entropy for countries>
 rsync -arz --delete metrics.torproject.org::metrics-recent/relay-descriptors/consensuses in
 """
 
@@ -101,10 +110,14 @@ def run(file_name):
     max_entropy_country = math.log(len(bw_countries), 2)
 
     return ",".join([valid_after,
-                     str(entropy/max_entropy),
-                     str(entropy_exit/max_entropy_exit),
-                     str(entropy_guard/max_entropy_guard),
-                     str(entropy_country/max_entropy_country)])
+                     str(entropy),
+                     str(max_entropy),
+                     str(entropy_exit),
+                     str(max_entropy_exit),
+                     str(entropy_guard),
+                     str(max_entropy_guard),
+                     str(entropy_country),
+                     str(max_entropy_country)])
 
 def usage():
     print "Usage - python pyentropy.py <consensus-dir> <output-file>"
