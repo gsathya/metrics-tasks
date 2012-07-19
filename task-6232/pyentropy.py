@@ -1,5 +1,5 @@
 """
-Usage - python pyentropy.py <consensus-dir> <output-file>
+Usage - python pyentropy.py -h
 Output - A CSV file of the format (without newlines):
          <valid-after>,
          <entropy for all nodes>,
@@ -17,7 +17,7 @@ import sys
 import math
 import os
 import pygeoip
-import getopt
+from optparse import OptionParser
 
 KEYS = ['r','s','v','w','p','m']
 
@@ -119,17 +119,25 @@ def run(file_name):
                      str(entropy_country),
                      str(max_entropy_country)])
 
-def usage():
-    print "Usage - python pyentropy.py <consensus-dir> <output-file>"
+def parse_args():
+    usage = "Usage - python pyentropy.py [options]"
+    parser = OptionParser(usage)
+
+    parser.add_option("-g", "--geoip", dest="geoip", default="GeoIP.dat", help="Input GeoIP database")
+    parser.add_option("-o", "--output", dest="output", default="entropy.csv", help="Output filename")
+    parser.add_option("-c", "--consensus", dest="consensus", default="in/consensus", help="Input consensus dir")
+
+    (options, args) = parser.parse_args()
+
+    return options
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        usage()
-        sys.exit()
 
-    gi = pygeoip.GeoIP(os.path.join(os.path.dirname(__file__), 'GeoIP.dat'))
-    with open(sys.argv[2], 'w') as f:
-        for file_name in os.listdir(sys.argv[1]):
-            string = run(os.path.join(sys.argv[1], file_name))
+    options = parse_args()
+    gi = pygeoip.GeoIP(options.geoip)
+
+    with open(options.output, 'w') as f:
+        for file_name in os.listdir(options.consensus):
+            string = run(os.path.join(options.consensus, file_name))
             if string:
                 f.write("%s\n" % (string))
