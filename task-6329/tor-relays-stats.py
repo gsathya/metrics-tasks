@@ -27,6 +27,8 @@ class RelayStats(object):
         relays = []
         if countries:
             countries = [x.lower() for x in countries]
+        if as_sets:
+            as_sets = [x if not x.isdigit() else "AS" + x for x in as_sets]
         for relay in self.data['relays']:
             if not relay['running']:
                 continue
