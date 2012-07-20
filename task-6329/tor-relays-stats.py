@@ -11,6 +11,7 @@ import operator
 import sys
 import os.path
 from optparse import OptionParser, OptionGroup
+import urllib
 
 class RelayStats(object):
     def __init__(self):
@@ -129,8 +130,17 @@ class RelayStats(object):
                   selection_weights[2] * 100.0, selection_weights[3] * 100.0,
                   selection_weights[4] * 100.0)
 
+def download_details_file():
+    url = urllib.urlopen('https://onionoo.torproject.org/details?type=relay&running=true')
+    details_file = open("details.json", 'w')
+    details_file.write(url.read())
+    url.close()
+    details_file.close()
+
 if '__main__' == __name__:
     parser = OptionParser()
+    parser.add_option("-d", "--download", action="store_true",
+                      help="download details.json from Onionoo service")
     group = OptionGroup(parser, "Filtering options")
     group.add_option("-a", "--as", dest="ases", action="append",
                      help="select only relays from autonomous system number AS",
@@ -155,8 +165,12 @@ if '__main__' == __name__:
     (options, args) = parser.parse_args()
     if len(args) > 0:
         parser.error("Did not understand positional argument(s), use options instead.")
+
+    if options.download:
+        download_details_file()
+
     if not os.path.exists('details.json'):
-        parser.error("Did not find details.json.  Please download this file using the following command:\ncurl -o details.json 'https://onionoo.torproject.org/details?type=relay&running=true'")
+        parser.error("Did not find details.json.  Re-run with --download.")
 
     stats = RelayStats()
     relays = stats.get_relays(countries=options.country,
