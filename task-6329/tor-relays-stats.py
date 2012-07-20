@@ -24,6 +24,8 @@ class RelayStats(object):
 
     def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False):
         relays = []
+        if countries:
+            countries = [x.lower() for x in countries]
         for relay in self.data['relays']:
             if not relay['running']:
                 continue
