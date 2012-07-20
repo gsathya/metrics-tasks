@@ -21,14 +21,6 @@ class RelayStats(object):
             self._data = json.load(file('details.json'))
         return self._data
 
-    def get_total_consensus_weight(self, relays=None):
-        if relays is None:
-            relays = self.get_relays()
-        total_consensus_weight = 0
-        for relay in relays:
-            total_consensus_weight += relay['consensus_weight']
-        return total_consensus_weight
-
     def get_relays(self, flags=[], countries='', as_sets=[]):
         relays = []
         for relay in self.data['relays']:
@@ -52,23 +44,22 @@ class RelayStats(object):
             country = relay.get('country', None)
             if country not in countries:
               countries[country] = 0
-            countries[country] += relay['consensus_weight']
+            countries[country] += relay['consensus_weight_fraction']
 
         ranking = sorted(countries.iteritems(), key=operator.itemgetter(1))
         ranking.reverse()
-        total_consensus_weight = self.get_total_consensus_weight()
         for country, weight in ranking[:count]:
-            print "%8.4f%% %s" % (weight * 100.0 / total_consensus_weight, country)
+            print "%8.4f%% %s" % (weight * 100.0, country)
         if len(ranking) > count:
-            other_consensus_weight = 0
+            other_consensus_weight_fraction = 0
             for as_set, weight in ranking[count:]:
-                other_consensus_weight += weight
-            print "%8.4f%% (%d others)" % (other_consensus_weight * 100.0 / total_consensus_weight, len(ranking) - count)
-        selection_consensus_weight = 0
+                other_consensus_weight_fraction += weight
+            print "%8.4f%% (%d others)" % (other_consensus_weight_fraction * 100.0, len(ranking) - count)
+        selection_consensus_weight_fraction = 0
         for as_set, weight in ranking:
-            selection_consensus_weight += weight
-        if selection_consensus_weight < total_consensus_weight:
-            print "%8.4f%% (total in selection)" % (selection_consensus_weight * 100.0 / total_consensus_weight)
+            selection_consensus_weight_fraction += weight
+        if selection_consensus_weight_fraction < 0.999:
+            print "%8.4f%% (total in selection)" % (selection_consensus_weight_fraction * 100.0)
 
     def output_as_sets(self, count='10', flags='', countries=''):
         count = int(count)
@@ -79,23 +70,22 @@ class RelayStats(object):
             as_set = relay.get('as_name', 'Unknown')
             if as_set not in as_sets:
                 as_sets[as_set] = 0
-            as_sets[as_set] += relay['consensus_weight']
+            as_sets[as_set] += relay['consensus_weight_fraction']
 
-        total_consensus_weight = self.get_total_consensus_weight()
         ranking = sorted(as_sets.iteritems(), key=operator.itemgetter(1))
         ranking.reverse()
         for as_set, weight in ranking[:count]:
-            print "%8.4f%% %s" % (weight * 100.0 / total_consensus_weight, as_set)
+            print "%8.4f%% %s" % (weight * 100.0, as_set)
         if len(ranking) > count:
-            other_consensus_weight = 0
+            other_consensus_weight_fraction = 0
             for as_set, weight in ranking[count:]:
-                other_consensus_weight += weight
-            print "%8.4f%% (%d others)" % (other_consensus_weight * 100.0 / total_consensus_weight, len(ranking) - count)
-        selection_consensus_weight = 0
+                other_consensus_weight_fraction += weight
+            print "%8.4f%% (%d others)" % (other_consensus_weight_fraction * 100.0, len(ranking) - count)
+        selection_consensus_weight_fraction = 0
         for as_set, weight in ranking:
-            selection_consensus_weight += weight
-        if selection_consensus_weight < total_consensus_weight:
-            print "%8.4f%% (total in selection)" % (selection_consensus_weight * 100.0 / total_consensus_weight)
+            selection_consensus_weight_fraction += weight
+        if selection_consensus_weight_fraction < 0.999:
+            print "%8.4f%% (total in selection)" % (selection_consensus_weight_fraction * 100.0)
 
     def output_relays(self, count='10', flags='', countries='', as_sets=''):
         count = int(count)
@@ -103,21 +93,20 @@ class RelayStats(object):
         as_sets = as_sets.split()
         relays = self.get_relays(flags, countries, as_sets)
 
-        total_consensus_weight = self.get_total_consensus_weight()
-        ranking = sorted(relays, key=operator.itemgetter('consensus_weight'))
+        ranking = sorted(relays, key=operator.itemgetter('consensus_weight_fraction'))
         ranking.reverse()
-        selection_consensus_weight = 0
+        selection_consensus_weight_fraction = 0
         for relay in ranking[:count]:
-            selection_consensus_weight += relay['consensus_weight']
-            print "%8.4f%% %-19s %-2s %-4s %-5s %s %-9s %s" % (relay['consensus_weight'] * 100.0 / total_consensus_weight, relay['nickname'], relay['fingerprint'], 'Exit' if 'Exit' in set(relay['flags']) else '', 'Guard' if 'Guard' in set(relay['flags']) else '', relay.get('country', '  '), relay.get('as_number', ''), relay.get('as_name', ''))
+            selection_consensus_weight_fraction += relay['consensus_weight_fraction']
+            print "%8.4f%% %-19s %-2s %-4s %-5s %s %-9s %s" % (relay['consensus_weight_fraction'] * 100.0, relay['nickname'], relay['fingerprint'], 'Exit' if 'Exit' in set(relay['flags']) else '', 'Guard' if 'Guard' in set(relay['flags']) else '', relay.get('country', '  '), relay.get('as_number', ''), relay.get('as_name', ''))
         if len(ranking) > count:
-            other_consensus_weight = 0
+            other_consensus_weight_fraction = 0
             for relay in ranking[count:]:
-                other_consensus_weight += relay['consensus_weight']
-                selection_consensus_weight += relay['consensus_weight']
-            print "%8.4f%% (%d others)" % (other_consensus_weight * 100.0 / total_consensus_weight, len(ranking) - count)
-        if selection_consensus_weight < total_consensus_weight:
-            print "%8.4f%% (total in selection)" % (selection_consensus_weight * 100.0 / total_consensus_weight)
+                other_consensus_weight_fraction += relay['consensus_weight_fraction']
+                selection_consensus_weight_fraction += relay['consensus_weight_fraction']
+            print "%8.4f%% (%d others)" % (other_consensus_weight_fraction * 100.0, len(ranking) - count)
+        if selection_consensus_weight_fraction < 0.999:
+            print "%8.4f%% (total in selection)" % (selection_consensus_weight_fraction * 100.0)
 
 OUTPUTS = {
   'countries': 'output_countries',
