@@ -10,6 +10,7 @@ import json
 import operator
 import sys
 import os.path
+from optparse import OptionParser, OptionGroup
 
 class RelayStats(object):
     def __init__(self):
@@ -21,16 +22,18 @@ class RelayStats(object):
             self._data = json.load(file('details.json'))
         return self._data
 
-    def get_relays(self, flags=[], countries='', as_sets=[]):
+    def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False):
         relays = []
         for relay in self.data['relays']:
             if not relay['running']:
                 continue
-            if set(flags) & set(relay['flags']) != set(flags):
-                continue
             if countries and not relay.get('country', ' ') in countries:
                 continue
             if as_sets and not relay.get('as_number', ' ') in as_sets:
+                continue
+            if exits_only and not relay.get('exit_probability', -1) > 0.0:
+                continue
+            if guards_only and not relay.get('guard_probability', -1) > 0.0:
                 continue
             relays.append(relay)
         return relays
@@ -124,70 +127,46 @@ class RelayStats(object):
                   selection_weights[2] * 100.0, selection_weights[3] * 100.0,
                   selection_weights[4] * 100.0)
 
-    def output_countries(self, count='10', flags=''):
-        count = int(count)
-        flags = flags.split()
-        relays = self.get_relays(flags)
-        grouped_relays = self.group_relays(relays, by_country=True)
-        sorted_groups = self.format_and_sort_groups(grouped_relays, by_country=True)
-        self.print_groups(sorted_groups, count, by_country=True)
-
-    def output_as_sets(self, count='10', flags='', countries=''):
-        count = int(count)
-        flags = flags.split()
-        relays = self.get_relays(flags, countries)
-        grouped_relays = self.group_relays(relays, by_as_number=True)
-        sorted_groups = self.format_and_sort_groups(grouped_relays, by_as_number=True)
-        self.print_groups(sorted_groups, count, by_as_number=True)
-
-    def output_relays(self, count='10', flags='', countries='', as_sets=''):
-        count = int(count)
-        flags = flags.split()
-        as_sets = as_sets.split()
-        relays = self.get_relays(flags, countries, as_sets)
-        grouped_relays = self.group_relays(relays)
-        sorted_groups = self.format_and_sort_groups(grouped_relays)
-        self.print_groups(sorted_groups, count)
-
-OUTPUTS = {
-  'countries': 'output_countries',
-  'as-sets': 'output_as_sets',
-  'relays': 'output_relays',
-}
-
-def usage():
-    print >>sys.stderr, """Usage: %(progname)s <output> [args ...]
-
-Where <output> is one of:
- - countries [COUNT] [FLAGS]
-   relative percentage of the consensus in each countries
- - as-sets [COUNT] [FLAGS] [COUNTRIES]
-   relative percentage of the consensus in each AS sets
- - relays [COUNT] [FLAGS] [COUNTRIES] [AS_SETS]
-   list relays ranked by their place in the whole consensus
-
-Examples:
-
- - To get the top five exit nodes in France:
-   %(progname)s top 5 Exit fr
- - To get weights of the top ten AS of all relays in Germany:
-   %(progname)s as-sets 10 Running de
-
-This script expect to have a file called 'details.json' in the
-current directory. In order to retrieve the needed data, one
-can issue the following command:
-
-    curl -o details.json 'https://onionoo.torproject.org/details?type=relay&running=true'
-""" % { 'progname': sys.argv[0] }
-    sys.exit(1)
-
 if '__main__' == __name__:
+    parser = OptionParser()
+    group = OptionGroup(parser, "Filtering options")
+    group.add_option("-a", "--as", dest="ases", action="append",
+                     help="select only relays from autonomous system number AS",
+                     metavar="AS")
+    group.add_option("-c", "--country", action="append",
+                     help="select only relays from country with code CC", metavar="CC")
+    group.add_option("-e", "--exits-only", action="store_true",
+                     help="select only relays suitable for exit position")
+    group.add_option("-g", "--guards-only", action="store_true",
+                     help="select only relays suitable for guard position")
+    parser.add_option_group(group)
+    group = OptionGroup(parser, "Grouping options")
+    group.add_option("-A", "--by-as", action="store_true", default=False,
+                     help="group relays by AS")
+    group.add_option("-C", "--by-country", action="store_true", default=False,
+                     help="group relays by country")
+    parser.add_option_group(group)
+    group = OptionGroup(parser, "Display options")
+    group.add_option("-t", "--top", type="int", default=10, metavar="NUM",
+                     help="display only the top results (default: %default)")
+    parser.add_option_group(group)
+    (options, args) = parser.parse_args()
+    if len(args) > 0:
+        parser.error("Did not understand positional argument(s), use options instead.")
     if not os.path.exists('details.json'):
-        usage()
-    if len(sys.argv) == 1:
-        usage()
-    func = OUTPUTS.get(sys.argv[1], None)
-    if not func:
-        usage()
+        parser.error("Did not find details.json.  Please download this file using the following command:\ncurl -o details.json 'https://onionoo.torproject.org/details?type=relay&running=true'")
+
     stats = RelayStats()
-    getattr(stats, func)(*sys.argv[2:])
+    relays = stats.get_relays(countries=options.country,
+                              as_sets=options.ases,
+                              exits_only=options.exits_only,
+                              guards_only=options.guards_only)
+    grouped_relays = stats.group_relays(relays,
+                     by_country=options.by_country,
+                     by_as_number=options.by_as)
+    sorted_groups = stats.format_and_sort_groups(grouped_relays,
+                    by_country=options.by_country,
+                    by_as_number=options.by_as)
+    stats.print_groups(sorted_groups, options.top,
+                       by_country=options.by_country,
+                       by_as_number=options.by_as)
