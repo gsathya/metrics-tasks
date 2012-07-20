@@ -123,7 +123,7 @@ class RelayStats(object):
         selection_weights = (0, 0, 0, 0, 0)
         for _, weights in sorted_groups:
             selection_weights = tuple(sum(x) for x in zip(selection_weights, weights))
-        if selection_weights[0] < 0.999:
+        if len(sorted_groups) > 1 and selection_weights[0] < 0.999:
             print "%8.4f%% %8.4f%% %8.4f%% %8.4f%% %8.4f%% (total in selection)" % (
                   selection_weights[0] * 100.0, selection_weights[1] * 100.0,
                   selection_weights[2] * 100.0, selection_weights[3] * 100.0,
