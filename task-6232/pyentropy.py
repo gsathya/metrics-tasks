@@ -81,17 +81,17 @@ def run(file_name):
             elif key in KEYS:
                 router.add(key, values)
 
-    totalBW, totalExitBW, totalGuardBW = 0, 0, 0
-    guards_n, exits_n = 0, 0
+    total_bw, total_exit_bw, total_guard_bw = 0, 0, 0
+    guards_no, exists_no = 0, 0
     bw_countries, bw_as = {}, {}
     for router in routers:
-        totalBW += router.bandwidth
+        total_bw += router.bandwidth
         if router.is_guard:
-            totalGuardBW += router.bandwidth
-            guards_n += 1
+            total_guard_bw += router.bandwidth
+            guards_no += 1
         if router.is_exit:
-            totalExitBW += router.bandwidth
-            exits_n += 1
+            total_exit_bw += router.bandwidth
+            exists_no += 1
         if bw_countries.has_key(router.country):
             bw_countries[router.country] += router.bandwidth
         else:
@@ -107,32 +107,32 @@ def run(file_name):
     
     entropy, entropy_exit, entropy_guard, entropy_country, entropy_as = 0.0, 0.0, 0.0, 0.0, 0.0
     for router in routers:
-        p = float(router.bandwidth) / float(totalBW)
+        p = float(router.bandwidth) / float(total_bw)
         if p != 0:
             entropy += -(p * math.log(p, 2))
         if router.is_guard:
-            p = float(router.bandwidth) / float(totalGuardBW)
+            p = float(router.bandwidth) / float(total_guard_bw)
             if p != 0:
                 entropy_guard += -(p * math.log(p, 2))
         if router.is_exit:
-            p = float(router.bandwidth) / float(totalExitBW)
+            p = float(router.bandwidth) / float(total_exit_bw)
             if p != 0:
                 entropy_exit += -(p * math.log(p, 2))
     
     for country in bw_countries.iterkeys():
-        p = float(bw_countries[country]) / float(totalBW)
+        p = float(bw_countries[country]) / float(total_bw)
         if p != 0:
             entropy_country += -(p * math.log(p, 2))
     
     for as_no in bw_as.iterkeys():
-        p = float(bw_as[as_no]) / float(totalBW)
+        p = float(bw_as[as_no]) / float(total_bw)
         if p !=0:
             entropy_as += -(p * math.log(p, 2))
     
     # Entropy of uniform distribution of 'n' possible values: log(n)
     max_entropy = math.log(len(routers), 2)
-    max_entropy_guard = math.log(guards_n, 2)
-    max_entropy_exit = math.log(exits_n, 2)
+    max_entropy_guard = math.log(guards_no, 2)
+    max_entropy_exit = math.log(exists_no, 2)
     max_entropy_country = math.log(len(bw_countries), 2)
     max_entropy_as = math.log(len(bw_as), 2)
     
