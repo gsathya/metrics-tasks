@@ -61,7 +61,7 @@ class RelayStats(object):
 
     def format_and_sort_groups(self, grouped_relays, by_country=False, by_as_number=False):
         formatted_groups = {}
-        for group in grouped_relays.viewvalues():
+        for group in grouped_relays.values():
             group_weights = (0, 0, 0, 0, 0)
             relays_in_group = 0
             for relay in group:
