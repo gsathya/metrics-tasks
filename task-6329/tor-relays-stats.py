@@ -23,14 +23,14 @@ class RelayStats(object):
             self._data = json.load(file('details.json'))
         return self._data
 
-    def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False):
+    def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False, fprint="", inactive=False):
         relays = []
         if countries:
             countries = [x.lower() for x in countries]
         if as_sets:
             as_sets = [x if not x.isdigit() else "AS" + x for x in as_sets]
         for relay in self.data['relays']:
-            if not relay['running']:
+            if not inactive and inactive == relay['running']:
                 continue
             if countries and not relay.get('country', ' ') in countries:
                 continue
@@ -39,6 +39,8 @@ class RelayStats(object):
             if exits_only and not relay.get('exit_probability', -1) > 0.0:
                 continue
             if guards_only and not relay.get('guard_probability', -1) > 0.0:
+                continue
+            if fprint and fprint != relay.get('fingerprint') and fprint not in [ffp.strip('$') for ffp in relay.get('family', [])]:
                 continue
             relays.append(relay)
         return relays
@@ -89,6 +91,7 @@ class RelayStats(object):
                 as_name = "*"
             if by_as_number and not by_country:
                 country = "*"
+            
             formatted_group = "%8.4f%% %8.4f%% %8.4f%% %8.4f%% %8.4f%% %-19s %-40s %-4s %-5s %-2s %-9s %s" % (
                               group_weights[0] * 100.0,
                               group_weights[1] * 100.0,
@@ -102,11 +105,11 @@ class RelayStats(object):
         sorted_groups.reverse()
         return sorted_groups
 
-    def print_groups(self, sorted_groups, count=10, by_country=False, by_as_number=False):
-        print "       CW    adv_bw   P_guard  P_middle    P_exit Nickname            Fingerprint                              Exit Guard CC AS_num    AS_name"
+    def print_groups(self, sorted_groups, count=10, by_country=False, by_as_number=False, short=None):
+        print "       CW    adv_bw   P_guard  P_middle    P_exit Nickname            Fingerprint                              Exit Guard CC AS_num    AS_name"[:short]
 
         for formatted_group, weight in sorted_groups[:count]:
-            print formatted_group
+            print formatted_group[:short]
         if len(sorted_groups) > count:
             if by_country and by_as_number:
                 type = "countries and ASes"
@@ -133,7 +136,7 @@ class RelayStats(object):
                   selection_weights[4] * 100.0)
 
 def download_details_file():
-    url = urllib.urlopen('https://onionoo.torproject.org/details?type=relay&running=true')
+    url = urllib.urlopen('https://onionoo.torproject.org/details?type=relay')
     details_file = open("details.json", 'w')
     details_file.write(url.read())
     url.close()
@@ -144,6 +147,8 @@ if '__main__' == __name__:
     parser.add_option("-d", "--download", action="store_true",
                       help="download details.json from Onionoo service")
     group = OptionGroup(parser, "Filtering options")
+    group.add_option("-i", "--inactive", action="store_true", default=False,
+                     help="include relays in selection that aren't currently running")
     group.add_option("-a", "--as", dest="ases", action="append",
                      help="select only relays from autonomous system number AS",
                      metavar="AS")
@@ -153,6 +158,8 @@ if '__main__' == __name__:
                      help="select only relays suitable for exit position")
     group.add_option("-g", "--guards-only", action="store_true",
                      help="select only relays suitable for guard position")
+    group.add_option("-f", "--family-for-fp", action="store", type="string", metavar="FP",
+                     help="select only relays of a family filtered by fingerprint")
     parser.add_option_group(group)
     group = OptionGroup(parser, "Grouping options")
     group.add_option("-A", "--by-as", action="store_true", default=False,
@@ -163,6 +170,8 @@ if '__main__' == __name__:
     group = OptionGroup(parser, "Display options")
     group.add_option("-t", "--top", type="int", default=10, metavar="NUM",
                      help="display only the top results (default: %default)")
+    group.add_option("-s", "--short", action="store_true",
+                     help="cut the length of the line output at 70 chars")
     parser.add_option_group(group)
     (options, args) = parser.parse_args()
     if len(args) > 0:
@@ -178,7 +187,9 @@ if '__main__' == __name__:
     relays = stats.get_relays(countries=options.country,
                               as_sets=options.ases,
                               exits_only=options.exits_only,
-                              guards_only=options.guards_only)
+                              guards_only=options.guards_only,
+                              fprint=options.family_for_fp,
+                              inactive=options.inactive)
     grouped_relays = stats.group_relays(relays,
                      by_country=options.by_country,
                      by_as_number=options.by_as)
@@ -187,4 +198,5 @@ if '__main__' == __name__:
                     by_as_number=options.by_as)
     stats.print_groups(sorted_groups, options.top,
                        by_country=options.by_country,
-                       by_as_number=options.by_as)
+                       by_as_number=options.by_as,
+                       short=70 if options.short else None)
