@@ -21,17 +21,21 @@ import os
 import pygeoip
 import StringIO
 import stem.descriptor
-from stem.descriptor.server_descriptor import RelayDescriptor, BridgeDescriptor
-from binascii import b2a_hex, a2b_base64, a2b_hex
-from optparse import OptionParser
 
-KEYS = ['r','s','v','w','p','m']
+from optparse import OptionParser
+from binascii import b2a_hex, a2b_base64, a2b_hex
+from stem.descriptor.server_descriptor import RelayDescriptor, BridgeDescriptor
+
+KEYS = ['r', 's', 'v', 'w','p', 'm']
 
 class Router:
     def __init__(self):
         self.lines = []
         self.nick = None
+        self.digest = None
+        self.hex_digest = None
         self.bandwidth = None
+        self.advertised_bw = None
         self.flags = None
         self.probability = None
         self.ip = None
@@ -40,31 +44,50 @@ class Router:
         self.as_name = None
         self.is_exit = None
         self.is_guard = None
-
+    
     def add(self, key, values):
         if key == 'r':
            self.nick = values[0]
+           self.digest = values[2]
+           self.hex_digest = b2a_hex(a2b_base64(self.digest+"="))
            self.ip = values[5]
            self.country = gi_db.country_name_by_addr(self.ip)
            self.as_no, self.as_name = self.get_as_details()
         if key == 'w':
-           self.bandwidth = int(values[0].split('=')[1])
+           self.advertised_bw = self.get_advertised_bw()
+           if self.advertised_bw:
+               self.bandwidth = self.advertised_bw
+           else:
+               self.bandwidth = int(values[0].split('=')[1])
         if key == 's':
            self.flags = values
            if "Exit" in self.flags:
                self.is_exit = True
            if "Guard" in self.flags:
                self.is_guard = True
-
+    
     def get_as_details(self):
         try:
             value = as_db.org_by_addr(str(self.ip)).split()
             return value[0], value[1]
         except:
             return None, None
-        
+    
+    def get_advertised_bw(self):
+        try:
+            with open(options.server_desc+self.hex_digest) as f:
+                data = f.read()
+                
+            desc_iter = stem.descriptor.server_descriptor.parse_file(StringIO.StringIO(data))
+            desc_entries = list(desc_iter)
+            desc = desc_entries[0]
+            return min(desc.average_bandwidth, desc.burst_bandwidth, desc.observed_bandwidth)
+        except:
+            return None
+
 def run(file_name):
     routers = []
+    Wed, Wee, Wgd, Wgg = 1, 1, 1, 1
     # parse consensus
     with open(file_name, 'r') as f:
         for line in f.readlines():
@@ -78,20 +101,28 @@ def run(file_name):
                 routers.append(router)
             elif key == 'valid-after':
                 valid_after = ' '.join(values)
+            elif key == 'bandwidth-weights':
+                Wed = float(values[6].split('=')[1]) / 10000
+                Wee = float(values[7].split('=')[1]) / 10000
+                Wgd = float(values[11].split('=')[1]) / 10000
+                Wgg = float(values[12].split('=')[1]) / 10000
             elif key in KEYS:
                 router.add(key, values)
-
+    
     total_bw, total_exit_bw, total_guard_bw = 0, 0, 0
-    guards_no, exists_no = 0, 0
+    guards_no, exits_no = 0, 0
     bw_countries, bw_as = {}, {}
     for router in routers:
         total_bw += router.bandwidth
-        if router.is_guard:
-            total_guard_bw += router.bandwidth
+        if router.is_guard and router.is_exit:
+            total_guard_bw += Wgd*router.bandwidth
+            total_exit_bw += Wed*router.bandwidth
+        elif router.is_guard:
+            total_guard_bw += Wgg*router.bandwidth
             guards_no += 1
-        if router.is_exit:
-            total_exit_bw += router.bandwidth
-            exists_no += 1
+        elif router.is_exit:
+            total_exit_bw += Wee*router.bandwidth
+            exits_no += 1
         if bw_countries.has_key(router.country):
             bw_countries[router.country] += router.bandwidth
         else:
@@ -101,7 +132,7 @@ def run(file_name):
                 bw_as[router.as_no] += router.bandwidth
             else:
                 bw_as[router.as_no] = router.bandwidth
-
+    
     if len(routers) <= 0:
         return
     
@@ -110,12 +141,19 @@ def run(file_name):
         p = float(router.bandwidth) / float(total_bw)
         if p != 0:
             entropy += -(p * math.log(p, 2))
-        if router.is_guard:
-            p = float(router.bandwidth) / float(total_guard_bw)
+        if router.is_guard and router.is_exit:
+            p = float(Wgd*router.bandwidth) / float(total_guard_bw)
             if p != 0:
                 entropy_guard += -(p * math.log(p, 2))
-        if router.is_exit:
-            p = float(router.bandwidth) / float(total_exit_bw)
+            p = float(Wed*router.bandwidth) / float(total_exit_bw)
+            if p != 0:
+                entropy_exit += -(p * math.log(p, 2))
+        elif router.is_guard:
+            p = float(Wgg*router.bandwidth) / float(total_guard_bw)
+            if p != 0:
+                entropy_guard += -(p * math.log(p, 2))
+        elif router.is_exit:
+            p = float(Wee*router.bandwidth) / float(total_exit_bw)
             if p != 0:
                 entropy_exit += -(p * math.log(p, 2))
     
@@ -132,7 +170,7 @@ def run(file_name):
     # Entropy of uniform distribution of 'n' possible values: log(n)
     max_entropy = math.log(len(routers), 2)
     max_entropy_guard = math.log(guards_no, 2)
-    max_entropy_exit = math.log(exists_no, 2)
+    max_entropy_exit = math.log(exits_no, 2)
     max_entropy_country = math.log(len(bw_countries), 2)
     max_entropy_as = math.log(len(bw_as), 2)
     
@@ -151,18 +189,18 @@ def run(file_name):
 def parse_args():
     usage = "Usage - python pyentropy.py [options]"
     parser = OptionParser(usage)
-
+    
     parser.add_option("-g", "--geoip", dest="gi_db", default="GeoIP.dat", help="Input GeoIP database")
     parser.add_option("-a", "--as", dest="as_db", default="GeoIPASNum.dat", help="Input AS GeoIP database")
+    parser.add_option("-s", "--server_desc", dest="server_desc", default="data/relay-descriptors/server-descriptors/", help="Server descriptors directory")
     parser.add_option("-o", "--output", dest="output", default="entropy.csv", help="Output filename")
     parser.add_option("-c", "--consensus", dest="consensus", default="in/consensus", help="Input consensus dir")
-
+    
     (options, args) = parser.parse_args()
-
+    
     return options
 
 if __name__ == "__main__":
-
     options = parse_args()
     gi_db = pygeoip.GeoIP(options.gi_db)
     as_db = pygeoip.GeoIP(options.as_db)
