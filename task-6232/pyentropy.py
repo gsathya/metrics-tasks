@@ -87,6 +87,7 @@ class Router:
 
 def run(file_name):
     routers = []
+    router = None
     Wed, Wee, Wgd, Wgg = 1, 1, 1, 1
     # parse consensus
     with open(file_name, 'r') as f:
@@ -94,11 +95,10 @@ def run(file_name):
             key = line.split()[0]
             values = line.split()[1:]
             if key =='r':
+                if router:
+                    routers.append(router)
                 router = Router()
                 router.add(key, values)
-            elif key == 'p':
-                router.add(key, values)
-                routers.append(router)
             elif key == 'valid-after':
                 valid_after = ' '.join(values)
             elif key == 'bandwidth-weights':
@@ -190,11 +190,16 @@ def parse_args():
     usage = "Usage - python pyentropy.py [options]"
     parser = OptionParser(usage)
     
-    parser.add_option("-g", "--geoip", dest="gi_db", default="GeoIP.dat", help="Input GeoIP database")
-    parser.add_option("-a", "--as", dest="as_db", default="GeoIPASNum.dat", help="Input AS GeoIP database")
-    parser.add_option("-s", "--server_desc", dest="server_desc", default="data/relay-descriptors/server-descriptors/", help="Server descriptors directory")
-    parser.add_option("-o", "--output", dest="output", default="entropy.csv", help="Output filename")
-    parser.add_option("-c", "--consensus", dest="consensus", default="in/consensus", help="Input consensus dir")
+    parser.add_option("-g", "--geoip", dest="gi_db", default="GeoIP.dat", 
+                      help="Input GeoIP database")
+    parser.add_option("-a", "--as", dest="as_db", default="GeoIPASNum.dat",
+                      help="Input AS GeoIP database")
+    parser.add_option("-s", "--server_desc", dest="server_desc",
+                      default="data/relay-descriptors/server-descriptors/", help="Server descriptors directory")
+    parser.add_option("-o", "--output", dest="output", default="entropy.csv",
+                      help="Output filename")
+    parser.add_option("-c", "--consensus", dest="consensus", default="in/consensus",
+                      help="Input consensus dir")
     
     (options, args) = parser.parse_args()
     
