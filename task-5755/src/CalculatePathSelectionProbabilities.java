@@ -2,9 +2,12 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.SortedSet;
@@ -88,10 +91,16 @@ public class CalculatePathSelectionProbabilities {
     descriptorReader = DescriptorSourceFactory.createDescriptorReader();
     descriptorReader.addDirectory(new File("in/consensuses"));
     descriptorFiles = descriptorReader.readDescriptors();
-    BufferedWriter bw = new BufferedWriter(new FileWriter("out.csv"));
+    BufferedWriter bw = new BufferedWriter(new FileWriter("weights.csv"));
     bw.write("validafter,fingerprint,advertised_bandwidth_fraction,"
         + "consensus_weight_fraction,guard_probability,"
         + "middle_probability,exit_probability\n");
+    BufferedWriter bw2 = new BufferedWriter(new FileWriter(
+        "cumulated-weights.csv"));
+    bw2.write("validafter,top_relays,total_exit_probability\n");
+    BufferedWriter bw3 = new BufferedWriter(new FileWriter(
+        "inverse-cumulated-weights.csv"));
+    bw3.write("validafter,total_exit_probability,top_relays\n");
     while (descriptorFiles.hasNext()) {
       DescriptorFile descriptorFile = descriptorFiles.next();
       for (Descriptor descriptor : descriptorFile.getDescriptors()) {
@@ -158,9 +167,6 @@ public class CalculatePathSelectionProbabilities {
               toUpperCase();
           double advertisedBandwidth;
           if (!serverDescriptors.containsKey(serverDescriptorDigest)) {
-            System.err.println("Missing server descriptor "
-                + serverDescriptorDigest + " while processing consensus "
-                + validAfter + ".  Setting advertised bandwidth to 0.");
             advertisedBandwidth = 0.0;
           } else {
             advertisedBandwidth = (double) serverDescriptors.get(
@@ -238,9 +244,39 @@ public class CalculatePathSelectionProbabilities {
               middleWeights.get(fingerprint) / totalMiddleWeight,
               exitWeights.get(fingerprint) / totalExitWeight));
         }
+
+        /* Write exit probabilities for top-x relays to the second and
+         * third output files. */
+        List<Double> sortedExitWeights = new ArrayList<Double>(
+            exitWeights.values());
+        Collections.sort(sortedExitWeights);
+        Collections.reverse(sortedExitWeights);
+        int topRelays = 0;
+        double totalExitProbability = 0.0;
+        List<Double> inverseProbabilities = new ArrayList<Double>(
+            Arrays.asList(new Double[] { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6,
+                0.7, 0.8, 0.9 }));
+        for (double exitWeight : sortedExitWeights) {
+          topRelays++;
+          totalExitProbability += exitWeight / totalExitWeight;
+          if (topRelays <= 50) {
+            bw2.write(String.format("%s,%d,%.9f%n", validAfter, topRelays,
+                totalExitProbability));
+          }
+          while (!inverseProbabilities.isEmpty() &&
+              totalExitProbability > inverseProbabilities.get(0)) {
+            bw3.write(String.format("%s,%.1f,%d%n", validAfter,
+                inverseProbabilities.remove(0), topRelays));
+          }
+          if (inverseProbabilities.isEmpty() && topRelays > 50) {
+            break;
+          }
+        }
       }
     }
     bw.close();
+    bw2.close();
+    bw3.close();
   }
 }
 
