@@ -23,7 +23,7 @@ class RelayStats(object):
             self._data = json.load(file('details.json'))
         return self._data
 
-    def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False, fprint="", inactive=False):
+    def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False, inactive=False):
         relays = []
         if countries:
             countries = [x.lower() for x in countries]
@@ -39,8 +39,6 @@ class RelayStats(object):
             if exits_only and not relay.get('exit_probability', -1) > 0.0:
                 continue
             if guards_only and not relay.get('guard_probability', -1) > 0.0:
-                continue
-            if fprint and fprint != relay.get('fingerprint') and fprint not in [ffp.strip('$') for ffp in relay.get('family', [])]:
                 continue
             relays.append(relay)
         return relays
@@ -91,7 +89,6 @@ class RelayStats(object):
                 as_name = "*"
             if by_as_number and not by_country:
                 country = "*"
-            
             formatted_group = "%8.4f%% %8.4f%% %8.4f%% %8.4f%% %8.4f%% %-19s %-40s %-4s %-5s %-2s %-9s %s" % (
                               group_weights[0] * 100.0,
                               group_weights[1] * 100.0,
@@ -158,8 +155,6 @@ if '__main__' == __name__:
                      help="select only relays suitable for exit position")
     group.add_option("-g", "--guards-only", action="store_true",
                      help="select only relays suitable for guard position")
-    group.add_option("-f", "--family-for-fp", action="store", type="string", metavar="FP",
-                     help="select only relays of a family filtered by fingerprint")
     parser.add_option_group(group)
     group = OptionGroup(parser, "Grouping options")
     group.add_option("-A", "--by-as", action="store_true", default=False,
@@ -188,7 +183,6 @@ if '__main__' == __name__:
                               as_sets=options.ases,
                               exits_only=options.exits_only,
                               guards_only=options.guards_only,
-                              fprint=options.family_for_fp,
                               inactive=options.inactive)
     grouped_relays = stats.group_relays(relays,
                      by_country=options.by_country,
