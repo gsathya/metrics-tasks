@@ -1,0 +1,7 @@
+Graph cdf of probability of selecting among the biggest k exits (#6443)
+
+- Run #5755 code to produce cumulated-weights.csv and
+  inverse-cumulated-weights.csv and copy those files to this directory.
+
+- Plot CDFs using: R --slave -f cumulated-weights.R
+
