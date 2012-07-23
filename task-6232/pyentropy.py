@@ -85,6 +85,16 @@ class Router:
         except:
             return None
 
+def parse_bw_weights(values):
+    data = {}
+    try:
+        for value in values:
+            key, value = value.split("=")
+            data[key] = float(value) / 10000
+        return data
+    except:
+        return None
+
 def run(file_name):
     routers = []
     router = None
@@ -102,10 +112,14 @@ def run(file_name):
             elif key == 'valid-after':
                 valid_after = ' '.join(values)
             elif key == 'bandwidth-weights':
-                Wed = float(values[6].split('=')[1]) / 10000
-                Wee = float(values[7].split('=')[1]) / 10000
-                Wgd = float(values[11].split('=')[1]) / 10000
-                Wgg = float(values[12].split('=')[1]) / 10000
+                data = parse_bw_weights(values)
+                try: 
+                    Wed = data['Wed']
+                    Wee = data['Wee']
+                    Wgd = data['Wgd']
+                    Wgg = data['Wgg']
+                except:
+                    pass
             elif key in KEYS:
                 router.add(key, values)
     
