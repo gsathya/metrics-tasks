@@ -56,7 +56,7 @@ class Router:
             value = as_db.org_by_addr(str(ip)).split()
             return value[0]
         except:
-            return None
+            return ""
     
     def get_advertised_bw(self, hex_digest):
         try:
@@ -132,11 +132,10 @@ def run(file_name):
             bw_countries[router.country] += router.bandwidth
         else:
             bw_countries[router.country] = router.bandwidth        
-        if router.as_no:
-            if bw_as.has_key(router.as_no):
-                bw_as[router.as_no] += router.bandwidth
-            else:
-                bw_as[router.as_no] = router.bandwidth
+        if bw_as.has_key(router.as_no):
+            bw_as[router.as_no] += router.bandwidth
+        else:
+            bw_as[router.as_no] = router.bandwidth
     
     entropy, entropy_exit, entropy_guard, entropy_country, entropy_as = 0.0, 0.0, 0.0, 0.0, 0.0
     for router in routers:
