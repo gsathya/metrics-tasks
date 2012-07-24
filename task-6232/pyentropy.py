@@ -26,8 +26,6 @@ from optparse import OptionParser
 from binascii import b2a_hex, a2b_base64, a2b_hex
 from stem.descriptor.server_descriptor import RelayDescriptor, BridgeDescriptor
 
-KEYS = ['r', 's', 'v', 'w','p', 'm']
-
 class Router:
     def __init__(self):
         self.lines = []
@@ -45,27 +43,28 @@ class Router:
         self.is_exit = None
         self.is_guard = None
     
-    def add(self, key, values):
-        if key == 'r':
+    def add_router_info(self, values):
            self.nick = values[0]
            self.digest = values[2]
            self.hex_digest = b2a_hex(a2b_base64(self.digest+"="))
            self.ip = values[5]
            self.country = gi_db.country_name_by_addr(self.ip)
            self.as_no, self.as_name = self.get_as_details()
-        if key == 'w':
+
+    def add_weights(self, values):
            self.advertised_bw = self.get_advertised_bw()
            if self.advertised_bw:
                self.bandwidth = self.advertised_bw
            else:
                self.bandwidth = int(values[0].split('=')[1])
-        if key == 's':
+
+    def add_flags(self, values):
            self.flags = values
            if "Exit" in self.flags:
                self.is_exit = True
            if "Guard" in self.flags:
                self.is_guard = True
-    
+ 
     def get_as_details(self):
         try:
             value = as_db.org_by_addr(str(self.ip)).split()
@@ -105,10 +104,13 @@ def run(file_name):
             key = line.split()[0]
             values = line.split()[1:]
             if key =='r':
-                if router:
-                    routers.append(router)
                 router = Router()
-                router.add(key, values)
+                routers.append(router)
+                router.add_router_info(values)
+            elif key == 's':
+                router.add_flags(values)
+            elif key == 'w':
+                router.add_weights(values)
             elif key == 'valid-after':
                 valid_after = ' '.join(values)
             elif key == 'bandwidth-weights':
@@ -120,8 +122,6 @@ def run(file_name):
                     Wgg = data['Wgg']
                 except:
                     pass
-            elif key in KEYS:
-                router.add(key, values)
     
     total_bw, total_exit_bw, total_guard_bw = 0, 0, 0
     guards_no, exits_no = 0, 0
