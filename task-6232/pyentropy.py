@@ -50,7 +50,7 @@ class Router:
                self.bandwidth = int(values[0].split('=')[1])
 
     def add_flags(self, values):
-           if "Exit" in values:
+           if "Exit" in values and not "BadExit" in values:
                self.is_exit = True
            if "Guard" in values:
                self.is_guard = True
