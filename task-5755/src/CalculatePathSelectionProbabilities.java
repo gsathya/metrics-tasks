@@ -58,6 +58,9 @@ import org.torproject.descriptor.ServerDescriptor;
 public class CalculatePathSelectionProbabilities {
   public static void main(String[] args) throws Exception {
 
+    /* Note: change to true if raw weights shall be written to disk. */
+    boolean writeRawWeights = false;
+
     /* Read advertised bandwidths of all server descriptors in
      * in/server-descriptors/ to memory.  This is a rather brute-force
      * approach, but it's fine for running this analysis. */
@@ -91,10 +94,13 @@ public class CalculatePathSelectionProbabilities {
     descriptorReader = DescriptorSourceFactory.createDescriptorReader();
     descriptorReader.addDirectory(new File("in/consensuses"));
     descriptorFiles = descriptorReader.readDescriptors();
-    BufferedWriter bw = new BufferedWriter(new FileWriter("weights.csv"));
-    bw.write("validafter,fingerprint,advertised_bandwidth_fraction,"
-        + "consensus_weight_fraction,guard_probability,"
-        + "middle_probability,exit_probability\n");
+    BufferedWriter bw = null;
+    if (writeRawWeights) {
+      bw = new BufferedWriter(new FileWriter("weights.csv"));
+      bw.write("validafter,fingerprint,advertised_bandwidth_fraction,"
+          + "consensus_weight_fraction,guard_probability,"
+          + "middle_probability,exit_probability\n");
+    }
     BufferedWriter bw2 = new BufferedWriter(new FileWriter(
         "cumulated-weights.csv"));
     bw2.write("validafter,top_relays,total_exit_probability\n");
@@ -119,16 +125,17 @@ public class CalculatePathSelectionProbabilities {
             consensus.getValidAfterMillis());
         SortedMap<String, Integer> bandwidthWeights =
             consensus.getBandwidthWeights();
+        if (bandwidthWeights == null) {
+          /* Consensus doesn't contain any bandwidth weights. */
+          continue;
+        }
         SortedSet<String> weightKeys = new TreeSet<String>(Arrays.asList((
             "Wgg,Wgm,Wgd,Wmg,Wmm,Wme,Wmd,Weg,Wem,Wee,Wed,Wgb,Wmb,Web,Wdb,"
             + "Wbg,Wbm,Wbe,Wbd").split(",")));
         weightKeys.removeAll(bandwidthWeights.keySet());
         if (!weightKeys.isEmpty()) {
-          System.err.print("Consensus is missing bandwidth-weights:");
-          for (String weightKey : weightKeys) {
-            System.err.print(" " + weightKey);
-          }
-          System.err.println();
+          /* Consensus is missing at least some required bandwidth
+           * weights. */
           continue;
         }
         double wgg = ((double) bandwidthWeights.get("Wgg")) / 10000.0,
@@ -231,18 +238,20 @@ public class CalculatePathSelectionProbabilities {
 
         /* Write calculated path-selection probabilities to the output
          * file. */
-        for (NetworkStatusEntry relay :
-            consensus.getStatusEntries().values()) {
-          String fingerprint = relay.getFingerprint();
-          bw.write(String.format("%s,%s,%.9f,%.9f,%.9f,%.9f,%.9f%n",
-              validAfter,
-              fingerprint,
-              advertisedBandwidths.get(fingerprint)
-                  / totalAdvertisedBandwidth,
-              consensusWeights.get(fingerprint) / totalConsensusWeight,
-              guardWeights.get(fingerprint) / totalGuardWeight,
-              middleWeights.get(fingerprint) / totalMiddleWeight,
-              exitWeights.get(fingerprint) / totalExitWeight));
+        if (bw != null) {
+          for (NetworkStatusEntry relay :
+              consensus.getStatusEntries().values()) {
+            String fingerprint = relay.getFingerprint();
+            bw.write(String.format("%s,%s,%.9f,%.9f,%.9f,%.9f,%.9f%n",
+                validAfter,
+                fingerprint,
+                advertisedBandwidths.get(fingerprint)
+                    / totalAdvertisedBandwidth,
+                consensusWeights.get(fingerprint) / totalConsensusWeight,
+                guardWeights.get(fingerprint) / totalGuardWeight,
+                middleWeights.get(fingerprint) / totalMiddleWeight,
+                exitWeights.get(fingerprint) / totalExitWeight));
+          }
         }
 
         /* Write exit probabilities for top-x relays to the second and
@@ -274,7 +283,9 @@ public class CalculatePathSelectionProbabilities {
         }
       }
     }
-    bw.close();
+    if (bw != null) {
+      bw.close();
+    }
     bw2.close();
     bw3.close();
   }
