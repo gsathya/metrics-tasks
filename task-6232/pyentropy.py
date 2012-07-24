@@ -28,7 +28,6 @@ from stem.descriptor.server_descriptor import RelayDescriptor, BridgeDescriptor
 
 class Router:
     def __init__(self):
-        self.hex_digest = None
         self.bandwidth = None
         self.advertised_bw = None
         self.country = None
@@ -37,17 +36,14 @@ class Router:
         self.is_guard = None
     
     def add_router_info(self, values):
-           self.hex_digest = b2a_hex(a2b_base64(values[2]+"="))
+           hex_digest = b2a_hex(a2b_base64(values[2]+"="))
+           self.advertised_bw = self.get_advertised_bw(hex_digest)
            ip = values[5]
            self.country = gi_db.country_code_by_addr(ip)
            self.as_no = self.get_as_details(ip)
 
     def add_weights(self, values):
-           self.advertised_bw = self.get_advertised_bw()
-           if self.advertised_bw:
-               self.bandwidth = self.advertised_bw
-           else:
-               self.bandwidth = int(values[0].split('=')[1])
+           self.bandwidth = int(values[0].split('=')[1])
 
     def add_flags(self, values):
            if "Exit" in values and not "BadExit" in values:
@@ -62,9 +58,9 @@ class Router:
         except:
             return None
     
-    def get_advertised_bw(self):
+    def get_advertised_bw(self, hex_digest):
         try:
-            with open(options.server_desc+self.hex_digest) as f:
+            with open(options.server_desc+hex_digest) as f:
                 data = f.read()
                 
             desc_iter = stem.descriptor.server_descriptor.parse_file(StringIO.StringIO(data))
@@ -72,7 +68,7 @@ class Router:
             desc = desc_entries[0]
             return min(desc.average_bandwidth, desc.burst_bandwidth, desc.observed_bandwidth)
         except:
-            return None
+            return 0
 
 def parse_bw_weights(values):
     data = {}
