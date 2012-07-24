@@ -109,6 +109,9 @@ def run(file_name):
                 except:
                     pass
     
+    if len(routers) <= 0:
+        return
+    
     total_bw, total_exit_bw, total_guard_bw = 0, 0, 0
     guards_no, exits_no = 0, 0
     bw_countries, bw_as = {}, {}
@@ -134,9 +137,6 @@ def run(file_name):
                 bw_as[router.as_no] += router.bandwidth
             else:
                 bw_as[router.as_no] = router.bandwidth
-    
-    if len(routers) <= 0:
-        return
     
     entropy, entropy_exit, entropy_guard, entropy_country, entropy_as = 0.0, 0.0, 0.0, 0.0, 0.0
     for router in routers:
