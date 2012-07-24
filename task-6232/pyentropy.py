@@ -28,28 +28,19 @@ from stem.descriptor.server_descriptor import RelayDescriptor, BridgeDescriptor
 
 class Router:
     def __init__(self):
-        self.lines = []
-        self.nick = None
-        self.digest = None
         self.hex_digest = None
         self.bandwidth = None
         self.advertised_bw = None
-        self.flags = None
-        self.probability = None
-        self.ip = None
         self.country = None
         self.as_no = None
-        self.as_name = None
         self.is_exit = None
         self.is_guard = None
     
     def add_router_info(self, values):
-           self.nick = values[0]
-           self.digest = values[2]
-           self.hex_digest = b2a_hex(a2b_base64(self.digest+"="))
-           self.ip = values[5]
-           self.country = gi_db.country_name_by_addr(self.ip)
-           self.as_no, self.as_name = self.get_as_details()
+           self.hex_digest = b2a_hex(a2b_base64(values[2]+"="))
+           ip = values[5]
+           self.country = gi_db.country_name_by_addr(ip)
+           self.as_no = self.get_as_details(ip)
 
     def add_weights(self, values):
            self.advertised_bw = self.get_advertised_bw()
@@ -59,18 +50,17 @@ class Router:
                self.bandwidth = int(values[0].split('=')[1])
 
     def add_flags(self, values):
-           self.flags = values
-           if "Exit" in self.flags:
+           if "Exit" in values:
                self.is_exit = True
-           if "Guard" in self.flags:
+           if "Guard" in values:
                self.is_guard = True
  
-    def get_as_details(self):
+    def get_as_details(self, ip):
         try:
-            value = as_db.org_by_addr(str(self.ip)).split()
-            return value[0], value[1]
+            value = as_db.org_by_addr(str(ip)).split()
+            return value[0]
         except:
-            return None, None
+            return None
     
     def get_advertised_bw(self):
         try:
