@@ -39,7 +39,7 @@ class Router:
     def add_router_info(self, values):
            self.hex_digest = b2a_hex(a2b_base64(values[2]+"="))
            ip = values[5]
-           self.country = gi_db.country_name_by_addr(ip)
+           self.country = gi_db.country_code_by_addr(ip)
            self.as_no = self.get_as_details(ip)
 
     def add_weights(self, values):
