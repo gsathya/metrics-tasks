@@ -117,6 +117,8 @@ def run(file_name):
         if router.is_guard and router.is_exit:
             total_guard_bw += Wgd*router.bandwidth
             total_exit_bw += Wed*router.bandwidth
+            guards_no += 1
+            exits_no += 1
         elif router.is_guard:
             total_guard_bw += Wgg*router.bandwidth
             guards_no += 1
