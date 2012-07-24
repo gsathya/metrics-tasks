@@ -116,6 +116,8 @@ def run(file_name):
     guards_no, exits_no = 0, 0
     bw_countries, bw_as = {}, {}
     for router in routers:
+        if not router.bandwidth:
+            continue
         total_bw += router.bandwidth
         if router.is_guard and router.is_exit:
             total_guard_bw += Wgd*router.bandwidth
@@ -137,6 +139,9 @@ def run(file_name):
         else:
             bw_as[router.as_no] = router.bandwidth
     
+    if total_bw == 0:
+        return
+
     entropy, entropy_exit, entropy_guard, entropy_country, entropy_as = 0.0, 0.0, 0.0, 0.0, 0.0
     for router in routers:
         p = float(router.bandwidth) / float(total_bw)
