@@ -1,4 +1,5 @@
 library(ggplot2)
+library(scales)
 
 u <- read.csv("bridge-users.csv", stringsAsFactors = FALSE)
 u <- u[u$date >= "2009-07-01" & u$date < "2011-08-01", c("date", "cn")]
@@ -7,12 +8,12 @@ geom_line(size = 0.75) +
 geom_rect(aes(NULL, NULL, xmin = as.Date("2010-01-01"),
     xmax = as.Date("2010-06-30"), ymin = -Inf, ymax = Inf, fill = TRUE)) +
 scale_fill_manual(name = "", breaks = TRUE,
-    values = alpha("purple", 0.2)) +
-scale_x_date(name = "", major = "6 months", minor = "1 month",
-    format = "%b %Y") +
+  values = alpha("purple", 0.005)) +
+scale_x_date("", breaks = "6 months", minor_breaks = "1 month",
+  labels = date_format("%b %Y")) +
 scale_y_continuous(name = "", limits = c(0, max(u$cn, na.rm = TRUE))) +
 opts(legend.position = "none")
-ggsave("bridge-users.png", width = 8, height = 4, dpi = 150)
+ggsave("bridge-users.pdf", width = 8, height = 4, dpi = 150)
 
 b <- read.csv("bridge-blockings.csv", stringsAsFactors = FALSE)
 b <- b[b$date >= '2010-01-01' & b$date <= '2010-06-30', ]
@@ -33,10 +34,10 @@ d <- rbind(data.frame(date = u$date, value = u$cn, variable = "Users"),
 ggplot(d, aes(x = as.Date(date), y = value)) +
 geom_line(size = 0.75) +
 facet_grid(variable ~ ., scales = "free_y") +
-scale_x_date(name = "", format = "%b %Y", major = "1 month",
-    minor = "months") +
+scale_x_date("", breaks = "1 months", minor_breaks = "1 month",
+  labels = date_format("%b %Y")) +
 scale_y_continuous(name = "")
-ggsave("bridge-users-blockings.png", width = 8, height = 4, dpi = 150)
+ggsave("bridge-users-blockings.pdf", width = 8, height = 4, dpi = 150)
 
 b <- data.frame(date = as.Date(b$date), ips = b$ips,
     fingerprint = substr(b$fingerprint, 1, 4),
@@ -50,11 +51,11 @@ geom_point(size = 0.75) +
 geom_hline(yintercept = 32, linetype = 2, size = 0.25) +
 geom_point(data = bb, aes(x = date, y = ips), colour = "red", size = 3,
     alpha = 0.25) +
-scale_x_date(name = "", format = "%b", major = "2 months",
-    minor = "months") +
+scale_x_date("", breaks = "2 months", minor_breaks = "1 month",
+  labels = date_format("%b")) +
 scale_y_continuous(name = "", breaks = c(0, 500, 1000)) +
 scale_colour_manual(breaks = c("red", "black"),
     values = c("red", "black")) +
 opts(legend.position = "none")
-ggsave("bridge-blockings.png", height = 9, width = 8)
+ggsave("bridge-blockings.pdf", height = 9, width = 8)
 
