@@ -3,7 +3,9 @@ require(scales)
 require(reshape)
 
 cw <- read.csv("cumulated-weights.csv", stringsAsFactors = FALSE)
-v <- sort(as.POSIXlt(unique(cw$validafter), tz = "UTC"),
+v <- cw
+v <- v[v$weight_type == "consensus weights", c(1, 3, 4)]
+v <- sort(as.POSIXlt(unique(v$validafter), tz = "UTC"),
   decreasing = TRUE)
 now <- week <- month <- threemonths <- year <- v[1]
 week$mday <- week$mday - 7
@@ -32,6 +34,7 @@ opts(title = paste("Probability of selecting one of the top-x relays for",
 ggsave("exit-probability-cdf-a.png", width = 8, height = 5, dpi = 100)
 
 c <- cw
+c <- c[c$weight_type == "consensus weights", c(1, 3, 4)]
 c <- c[c$top_relays %in% c(1, 2, 5, 10, 20, 50), ]
 c <- aggregate(list(total_exit_probability = c$total_exit_probability),
   by = list(date = as.Date(cut.Date(as.Date(c$validafter,
@@ -48,7 +51,9 @@ opts(title = paste("Probability of selecting one of the top-x relays for",
   "the exit position\n"), legend.position = "bottom")
 ggsave("exit-probability-cdf-b.png", width = 8, height = 5, dpi = 100)
 
-i <- read.csv("inverse-cumulated-weights.csv", stringsAsFactors = FALSE)
+iw <- read.csv("inverse-cumulated-weights.csv", stringsAsFactors = FALSE)
+i <- iw
+i <- i[i$weight_type == "consensus weights", c(1, 3, 4)]
 i <- i[i$total_exit_probability %in% factor(c(0.3, 0.4, 0.5, 0.6, 0.7)), ]
 i <- aggregate(list(top_relays = i$top_relays),
   by = list(date = as.Date(cut.Date(as.Date(i$validafter,
