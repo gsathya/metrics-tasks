@@ -1,7 +1,17 @@
 Graph cdf of probability of selecting among the biggest k exits (#6443)
 
-- Run #5755 code to produce cumulated-weights.csv and
-  inverse-cumulated-weights.csv and copy those files to this directory.
+- Put consensuses and server descriptors into newly created directories
+  in/consensuses/ and in/server-descriptors/.
 
-- Plot CDFs using: R --slave -f cumulated-weights.R
+- Put metrics-lib's descriptor.jar, commons-codec, and commons-compress
+  into lib/ directory.
+
+- Compile Java class:
+  $ javac -d bin -cp lib/descriptor.jar src/CalculatePathSelectionProbabilities.java
+
+- Run Java class:
+  $ java -cp bin:lib/descriptor.jar:lib/commons-codec-1.6.jar:lib/commons-compress-1.4.1.jar CalculatePathSelectionProbabilities
+
+- Plot graphs:
+  $ R --slave -f cumulated-weights.R
 
