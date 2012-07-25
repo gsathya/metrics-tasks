@@ -54,3 +54,27 @@ scale_y_continuous(name = "Entropy and maximum entropy\n",
 opts(legend.position = "none")
 ggsave("entropy.png", width = 8, height = 6, dpi = 100)
 
+
+g <- aggregate(list(all = d$all, max_all = d$max_all, exit = d$exit,
+  max_exit = d$max_exit, guard = d$guard, max_guard = d$max_guard,
+  country = d$country, max_country = d$max_country, as = d$as,
+  max_as = d$max_as),
+  by = list(date = as.Date(d$validafter, origin = "1970-01-01 00:00:00")),
+  FUN = median)
+g <- rbind(
+  data.frame(date = g$date, entropy = 2^g$all, max = 2^g$max_all,
+    type = "All relays"),
+  data.frame(date = g$date, entropy = 2^g$exit, max = 2^g$max_exit,
+    type = "All exits"),
+  data.frame(date = g$date, entropy = 2^g$guard, max = 2^g$max_guard,
+    type = "All guards"))
+g <- melt(g, c("date", "type"))
+ggplot(g, aes(x = date, y = value, colour = variable)) +
+geom_line() +
+facet_wrap(~ type) +
+scale_x_date(name = "\nDate") +
+scale_y_continuous(name = "Number of relays and Number of fair relays\n",
+  limits = c(0, max(g$value))) +
+opts(legend.position = "none")
+ggsave("relays_fair.png", width = 8, height = 6, dpi = 100)
+
