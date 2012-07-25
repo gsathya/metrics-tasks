@@ -1,4 +1,7 @@
 library(ggplot2)
+library(scales)
+library(grid)
+library(reshape)
 stability <- read.csv("stability.csv", stringsAsFactors = FALSE)
 
 d <- stability[stability$time > '2010-07' & stability$time < '2011-07', ]
@@ -18,8 +21,8 @@ d <- rbind(d,
   y = NA, ymin = NA, ymax = NA))
 ggplot(d, aes(x = as.Date(x), y = y, ymin = ymin, ymax = ymax)) +
 geom_line() +
-scale_x_date(name = "", major = "3 months", minor = "1 month",
-  format = "%b %Y") +
+scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
+  labels = date_format("%b %Y")) +
 scale_y_continuous(name = "Running    \nbridges    ",
   limits = c(0, max(d_mean$running, na.rm = TRUE))) +
 opts(axis.title.x = theme_text(size = 12 * 0.8, face = "bold",
@@ -35,8 +38,8 @@ d <- stability[stability$time > '2010-07-10' &
   stability$time < '2010-07-31', ]
 a <- ggplot(d, aes(x = as.POSIXct(time), y = running)) +
 geom_point(size = 0.75) +
-scale_x_datetime(name = "", major = "1 week", minor = "1 day",
-  format = "%b %d, %Y") +
+scale_x_datetime(name = "", breaks = "1 week", minor_breaks = "1 day",
+  labels = date_format("%b %d, %Y")) +
 scale_y_continuous(name = "Running    \nbridges    ",
   limits = c(0, max(d$running, na.rm = TRUE))) +
 opts(axis.title.x = theme_text(size = 12 * 0.8, face = "bold",
@@ -53,8 +56,8 @@ d <- rbind(
   data.frame(time = e$time, running = 687, colour = "grey"))
 b <- ggplot(d, aes(x = as.POSIXct(time), y = running, colour = colour)) +
 geom_point(size = 0.75) +
-scale_x_datetime(name = "", major = "1 week", minor = "1 day",
-  format = "%b %d, %Y") +
+scale_x_datetime(name = "", breaks = "1 week", minor_breaks = "1 day",
+  labels = date_format("%b %d, %Y")) +
 scale_y_continuous(name = "Running    \nbridges    ",
   limits = c(0, max(d$running, na.rm = TRUE))) +
 scale_colour_manual(values = c("black", "grey60")) +
@@ -108,8 +111,8 @@ geom_line() +#colour = "grey30") +
 geom_hline(data = e, aes(yintercept = yintercept), colour = "gray40",
   linetype = 2) +
 facet_grid(var ~ ., scales = "free_y") +
-scale_x_date(name = "", major = "3 months", minor = "1 month",
-  format = "%b %Y") +
+scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
+  labels = date_format("%b %Y")) +
 scale_y_continuous(name = "") +
 opts(axis.title.x = theme_text(size = 12 * 0.8, face = "bold",
   hjust = 0.5),
@@ -132,9 +135,9 @@ d <- melt(d, id = "date")
 ggplot(d, aes(x = date, y = value / 10000, linetype = variable)) +
 geom_line() +
 scale_y_continuous(name = paste("10th perc.   \nWFU in   \n",
-  "the future   ", sep = ""), formatter = "percent", limits = c(0, 1)) +
-scale_x_date(name = "", major = "3 months", minor = "1 month",
-  format = "%b %Y") +
+  "the future   ", sep = ""), labels = percent, limits = c(0, 1)) +
+scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
+  labels = date_format("%b %Y")) +
 scale_linetype_manual(name = paste("Requirements for\nconsidering",
   "a\nbridge as stable\n"), breaks = c("perc10wfu50wfu50wmtbac",
   "perc10wfu50wfu0wmtbac", "perc10wfu0wfu50wmtbac",
@@ -166,8 +169,8 @@ scale_y_continuous(name = paste("10th perc.   \ntime on   \nthe same   \n",
   breaks = seq(0, max(d$value / 86400, na.rm = TRUE), 7),
   minor = seq(0, max(d$value / 86400, na.rm = TRUE), 1),
   limits = c(0, max(d$value / 86400, na.rm = TRUE))) +
-scale_x_date(name = "", major = "3 months", minor = "1 month",
-  format = "%b %Y") +
+scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
+  labels = date_format("%b %Y")) +
 scale_linetype_manual(name = paste("Requirements for\nconsidering",
   "a\nbridge as stable\n"), breaks = c("perc10tosa50wfu50wmtbac",
   "perc10tosa0wfu50wmtbac", "perc10tosa50wfu0wmtbac",
@@ -207,9 +210,9 @@ d <- rbind(d,
 ggplot(d, aes(x = x, y = y, linetype = variable)) +
 geom_line() +
 scale_y_continuous(name = "Fraction of    \nRunning    \nbridges    ",
-  formatter = "percent", limits = c(0, max(d$y, na.rm = TRUE))) +
-scale_x_date(name = "", major = "3 months", minor = "1 month",
-  format = "%b %Y") +
+  labels = percent, limits = c(0, max(d$y, na.rm = TRUE))) +
+scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
+  labels = date_format("%b %Y")) +
 scale_linetype_manual(name = paste("\nRequirements for\nconsidering",
   "a\nbridge as stable\n"), values = c(3, 2, 4)) +
 opts(axis.title.x = theme_text(size = 12 * 0.8, face = "bold",
