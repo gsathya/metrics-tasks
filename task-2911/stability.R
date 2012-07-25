@@ -1,4 +1,5 @@
 library(ggplot2)
+library(scales)
 data <- read.csv("stability.csv", stringsAsFactors = FALSE)
 
 d <- data
@@ -13,8 +14,8 @@ d <- rbind(
     variable = "Running + Guard"))
 ggplot(d, aes(x = as.Date(date), y = value, colour = variable)) +
 geom_line(size = 0.7) +
-scale_x_date("", major = "3 months", minor = "1 month",
-  format = "%b %Y") +
+scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
+  labels = date_format("%b %Y")) +
 scale_y_continuous("Number    \nof relays    ",
   limits = c(0, max(d$value, na.rm = TRUE))) +
 scale_colour_manual(name = "Assigned relay flags\n",
@@ -41,9 +42,9 @@ d[d$x >= '2010-01-25' & d$x <= '2010-01-26', "y"] <- NA
 ggplot(d, aes(x = x, y = y, colour = variable, linetype = variable)) +
 geom_line() +
 scale_y_continuous(name = "Fraction of   \nRunning relays   ",
-  formatter = "percent", limits = c(0, max(d$y, na.rm = TRUE))) +
-scale_x_date(name = "", major = "3 months", minor = "1 month",
-  format = "%b %Y") +
+  labels = percent, limits = c(0, max(d$y, na.rm = TRUE))) +
+scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
+  labels = date_format("%b %Y")) +
 scale_colour_manual(name = "Assigned relay flags\n",
   values = c("Stable (observed)" = "grey50",
   "Stable (simulated)" = "grey50",
@@ -79,8 +80,8 @@ ggplot(d, aes(x = x, y = y, linetype = variable)) +
 geom_line() +
 facet_grid(flag ~ ., scale = "free_y") +
 scale_y_continuous(name = "Number   \nof relays   ") +
-scale_x_date(name = "", major = "3 months", minor = "1 month",
-  format = "%b %Y") +
+scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
+  labels = date_format("%b %Y")) +
 scale_linetype_manual(name = "", values = c(4, 3, 1)) +
 opts(axis.title.x = theme_text(size = 12 * 0.8, face = "bold",
   hjust = 0.5),
@@ -124,8 +125,8 @@ geom_ribbon(alpha = 0.3) +
 geom_hline(data = e, aes(yintercept = yintercept), colour = "gray30",
   linetype = 2) +
 facet_wrap(~ var, scales = "free_y") +
-scale_x_date(name = "", major = "3 months", minor = "1 month",
-  format = "%b %Y") +
+scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
+  labels = date_format("%b %Y")) +
 scale_y_continuous(name = "")
 ggsave(filename = "requirements.pdf", width = 8, height = 5, dpi = 100)
 
@@ -157,7 +158,7 @@ scale_x_continuous(name = paste("\n10th percentile of time until next",
   limits = c(0, max(d$x, na.rm = TRUE))) +
 scale_y_continuous(name = paste("Cumulative fraction  \nof",
   "consensuses  \nfrom July to  \nDecember 2010  "),
-  formatter = "percent", limits = c(0, 1)) +
+  labels = percent, limits = c(0, 1)) +
 scale_colour_manual(name = paste("WMTBF percentile\nfor",
   "assigning\nStable flag\n"),
     values = c("60th (simulated)" = "black",
@@ -199,10 +200,10 @@ d <- rbind(
 ggplot(d, aes(x = x, y = y, colour = sim, linetype = sim)) +
 geom_line() +
 scale_x_continuous(name = "\n10th percentile of WFU in the future",
-  formatter = "percent") +
+  labels = percent) +
 scale_y_continuous(name = paste("Cumulative fraction  \nof",
   "consensuses  \nfrom July to  \nDecember 2010  "),
-  formatter = "percent", limits = c(0, 1)) +
+  labels = percent, limits = c(0, 1)) +
 scale_colour_manual(name = paste("WFU percentile\nfor",
   "assigning\nGuard flag\n"),
     values = c("60th (simulated)" = "black",
@@ -246,7 +247,7 @@ scale_x_continuous(name = paste("\n10th percentile of weighted bandwidth",
   "in KiB/s in the future")) +
 scale_y_continuous(name = paste("Cumulative fraction  \nof",
   "consensuses  \nfrom July to  \nDecember 2010  "),
-  formatter = "percent", limits = c(0, 1)) +
+  labels = percent, limits = c(0, 1)) +
 scale_colour_manual(name = paste("Advertised\nbandwidth\npercentile\nfor",
   "assigning\nGuard flag\n"),
     values = c(
@@ -279,9 +280,9 @@ d <- rbind(
 ggplot(d, aes(x = x, y = y, colour = variable, linetype = variable)) +
 geom_line() +
 scale_y_continuous(name = "Fraction of   \nRunning relays   ",
-  formatter = "percent", limits = c(0, max(d$y, na.rm = TRUE))) +
-scale_x_date(name = "", major = "3 months", minor = "1 month",
-  format = "%b %Y") +
+  labels = percent, limits = c(0, max(d$y, na.rm = TRUE))) +
+scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
+  labels = date_format("%b %Y")) +
 scale_colour_manual(name = paste("Advertised\nbandwidth\npercentile\nfor",
   "assigning\nGuard flag\n"),
     values = c(
