@@ -12,6 +12,7 @@ import sys
 import os.path
 from optparse import OptionParser, OptionGroup
 import urllib
+import re
 
 class RelayStats(object):
     def __init__(self):
@@ -23,13 +24,40 @@ class RelayStats(object):
             self._data = json.load(file('details.json'))
         return self._data
 
-    def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False, inactive=False, fast_exits_only=False):
+    def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False, inactive=False, fast_exits_only=False, family=None):
         relays = []
+        family_fingerprint = None
+        family_nickname = None
+        family_relays = []
         if countries:
             countries = [x.lower() for x in countries]
         if as_sets:
             as_sets = [x if not x.isdigit() else "AS" + x for x in as_sets]
+        if family:
+            fingerprint = family if len(family) == 40 else None
+            nickname = family if len(family) < 20 else None
+            found_relay = None
+            for relay in self.data['relays']:
+                if fingerprint and relay['fingerprint'] == fingerprint:
+                    found_relay = relay
+                    break
+                if nickname and 'Named' in relay['flags'] and relay['nickname'] == nickname:
+                    found_relay = relay
+                    break
+            if found_relay:
+                family_fingerprint = '$%s' % found_relay.get('fingerprint')
+                family_nickname = found_relay['nickname'] if 'Named' in found_relay['flags'] else None
+                family_relays = found_relay.get('family', [])
+                family_relays.append(family_fingerprint)
         for relay in self.data['relays']:
+            if family:
+               mentions = relay.get('family', [])
+               mentions.append('%s' % relay['fingerprint'])
+               if ('$%s' % relay['fingerprint'] not in family_relays and \
+                  relay['nickname'] not in family_relays if 'Named' in relay['flags'] else '') or \
+                  (family_fingerprint not in mentions and \
+                  family_nickname not in mentions):
+                   continue
             if not inactive and inactive == relay['running']:
                 continue
             if countries and not relay.get('country', ' ') in countries:
@@ -185,6 +213,8 @@ if '__main__' == __name__:
                      help="select only relays from country with code CC", metavar="CC")
     group.add_option("-e", "--exits-only", action="store_true",
                      help="select only relays suitable for exit position")
+    group.add_option("-f", "--family", action="store", type="string", metavar="RELAY",
+                     help="select family by fingerprint or nickname (for named relays)")
     group.add_option("-g", "--guards-only", action="store_true",
                      help="select only relays suitable for guard position")
     group.add_option("-x", "--fast-exits-only", action="store_true",
@@ -208,6 +238,8 @@ if '__main__' == __name__:
     if len(args) > 0:
         parser.error("Did not understand positional argument(s), use options instead.")
 
+    if options.family and not re.match(r'^[A-F0-9]{40}$', options.family) and not re.match(r'^[A-Za-z0-9]{1,19}$', options.family):
+        parser.error("Not a valid fingerprint or nickname: %s" % options.family)
     if options.download:
         download_details_file()
         print "Downloaded details.json.  Re-run without --download option."
@@ -222,7 +254,8 @@ if '__main__' == __name__:
                               exits_only=options.exits_only,
                               guards_only=options.guards_only,
                               inactive=options.inactive,
-                              fast_exits_only=options.fast_exits_only)
+                              fast_exits_only=options.fast_exits_only,
+                              family=options.family)
     grouped_relays = stats.group_relays(relays,
                      by_country=options.by_country,
                      by_as_number=options.by_as)
