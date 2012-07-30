@@ -132,17 +132,17 @@ d <- rbind(d,
   perc10wfu0wfu0wmtbac = NA, perc10wfu0wfu50wmtbac = NA,
   perc10wfu50wfu0wmtbac = NA, perc10wfu50wfu50wmtbac = NA))
 d <- melt(d, id = "date")
-ggplot(d, aes(x = date, y = value / 10000, linetype = variable)) +
+ggplot(d, aes(x = date, y = value / 10000, colour = variable)) +
 geom_line() +
 scale_y_continuous(name = paste("10th perc.   \nWFU in   \n",
   "the future   ", sep = ""), labels = percent, limits = c(0, 1)) +
 scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
   labels = date_format("%b %Y")) +
-scale_linetype_manual(name = paste("Requirements for\nconsidering",
+scale_colour_manual(name = paste("Requirements for\nconsidering",
   "a\nbridge as stable\n"), breaks = c("perc10wfu50wfu50wmtbac",
   "perc10wfu50wfu0wmtbac", "perc10wfu0wfu50wmtbac",
   "perc10wfu0wfu0wmtbac"), labels = c("WFU & WMTBAC", "WFU", "WMTBAC",
-  "None"), values = c(1, 3, 2, 4)) +
+  "None"), values = c("black", "grey60", "grey80", "grey45")) +
 opts(plot.title = theme_text(size = 14 * 0.8, face = "bold"),
   axis.title.x = theme_text(size = 12 * 0.8, face = "bold",
   hjust = 0.5),
@@ -162,7 +162,7 @@ d <- rbind(d,
   perc10tosa0wfu0wmtbac = NA, perc10tosa0wfu50wmtbac = NA,
   perc10tosa50wfu0wmtbac = NA, perc10tosa50wfu50wmtbac = NA))
 d <- melt(d, id = "date")
-ggplot(d, aes(x = date, y = value / 86400, linetype = variable)) +
+ggplot(d, aes(x = date, y = value / 86400, colour = variable)) +
 geom_line() +
 scale_y_continuous(name = paste("10th perc.   \ntime on   \nthe same   \n",
   "address   \nin days   ", sep = ""),
@@ -171,11 +171,11 @@ scale_y_continuous(name = paste("10th perc.   \ntime on   \nthe same   \n",
   limits = c(0, max(d$value / 86400, na.rm = TRUE))) +
 scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
   labels = date_format("%b %Y")) +
-scale_linetype_manual(name = paste("Requirements for\nconsidering",
+scale_colour_manual(name = paste("Requirements for\nconsidering",
   "a\nbridge as stable\n"), breaks = c("perc10tosa50wfu50wmtbac",
   "perc10tosa0wfu50wmtbac", "perc10tosa50wfu0wmtbac",
   "perc10tosa0wfu0wmtbac"), labels = c("WFU & WMTBAC", "WMTBAC", "WFU",
-  "None"), values = c(1, 3, 2, 4)) +
+  "None"), values = c("black", "grey80", "grey60", "grey45")) +
 opts(plot.title = theme_text(size = 14 * 0.8, face = "bold"),
   axis.title.x = theme_text(size = 12 * 0.8, face = "bold",
   hjust = 0.5),
@@ -207,14 +207,14 @@ d <- rbind(d,
     variable = "WFU"),
   data.frame(x = missing_dates, y = NA,
     variable = "WFU & WMTBAC"))
-ggplot(d, aes(x = x, y = y, linetype = variable)) +
+ggplot(d, aes(x = x, y = y, colour = variable)) +
 geom_line() +
 scale_y_continuous(name = "Fraction of    \nRunning    \nbridges    ",
   labels = percent, limits = c(0, max(d$y, na.rm = TRUE))) +
 scale_x_date("", breaks = "3 months", minor_breaks = "1 month",
   labels = date_format("%b %Y")) +
-scale_linetype_manual(name = paste("\nRequirements for\nconsidering",
-  "a\nbridge as stable\n"), values = c(3, 2, 4)) +
+scale_colour_manual(name = paste("\nRequirements for\nconsidering",
+  "a\nbridge as stable\n"), values = c("grey80", "grey60", "grey45")) +
 opts(axis.title.x = theme_text(size = 12 * 0.8, face = "bold",
   hjust = 0.5),
   axis.title.y = theme_text(size = 12 * 0.8, face = "bold", vjust = 0.5,
