@@ -1,6 +1,7 @@
 require(ggplot2)
 require(scales)
 require(reshape)
+require(RColorBrewer)
 
 cw <- read.csv("cumulated-weights.csv", stringsAsFactors = FALSE)
 v <- cw
@@ -28,12 +29,12 @@ geom_point() +
 geom_line() +
 scale_x_continuous(name = "\nTop-x relays by exit probability") +
 scale_y_continuous(name = "Total exit probability\n", labels = percent) +
-scale_colour_hue(name = "",
+scale_colour_manual(name = "", values = rev(brewer.pal(5, "Greens")),
   labels = c(format(as.Date(now), format = "%B %d, %Y"), "1 week before",
   "1 month before", "3 months before", "1 year before")) +
 opts(title = paste("Probability of selecting one of the top-x relays for",
   "the exit position\n"))
-ggsave("exit-probability-cdf-a.png", width = 8, height = 5, dpi = 100)
+ggsave("exit-probability-cdf-a2.png", width = 8, height = 5, dpi = 100)
 
 c <- cw
 c <- c[c$weight_type == "consensus weights", c(1, 3, 4)]
