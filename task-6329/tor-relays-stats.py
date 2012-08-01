@@ -84,7 +84,7 @@ class RelayStats(object):
             grouped_relays[key].append(relay)
         return grouped_relays
 
-    def format_and_sort_groups(self, grouped_relays, by_country=False, by_as_number=False):
+    def format_and_sort_groups(self, grouped_relays, by_country=False, by_as_number=False, links=False):
         formatted_groups = {}
         for group in grouped_relays.values():
             group_weights = (0, 0, 0, 0, 0)
@@ -97,7 +97,7 @@ class RelayStats(object):
                            relay.get('exit_probability', 0))
                 group_weights = tuple(sum(x) for x in zip(group_weights, weights))
                 nickname = relay['nickname']
-                fingerprint = relay['fingerprint']
+                fingerprint = relay['fingerprint'] if not links else "https://atlas.torproject.org/#details/%s" % relay['fingerprint']
                 exit = 'Exit' if 'Exit' in set(relay['flags']) else ''
                 guard = 'Guard' if 'Guard' in set(relay['flags']) else ''
                 country = relay.get('country', '')
@@ -114,7 +114,11 @@ class RelayStats(object):
                 as_name = "*"
             if by_as_number and not by_country:
                 country = "*"
-            formatted_group = "%8.4f%% %8.4f%% %8.4f%% %8.4f%% %8.4f%% %-19s %-40s %-4s %-5s %-2s %-9s %s" % (
+            if links:
+                format_string = "%8.4f%% %8.4f%% %8.4f%% %8.4f%% %8.4f%% %-19s %-78s %-4s %-5s %-2s %-9s %s"
+            else:
+                format_string = "%8.4f%% %8.4f%% %8.4f%% %8.4f%% %8.4f%% %-19s %-40s %-4s %-5s %-2s %-9s %s"
+            formatted_group = format_string % (
                               group_weights[0] * 100.0,
                               group_weights[1] * 100.0,
                               group_weights[2] * 100.0,
@@ -127,8 +131,11 @@ class RelayStats(object):
         sorted_groups.reverse()
         return sorted_groups
 
-    def print_groups(self, sorted_groups, count=10, by_country=False, by_as_number=False, short=None):
-        print "       CW    adv_bw   P_guard  P_middle    P_exit Nickname            Fingerprint                              Exit Guard CC AS_num    AS_name"[:short]
+    def print_groups(self, sorted_groups, count=10, by_country=False, by_as_number=False, short=False, links=False):
+        if links:
+            print "       CW    adv_bw   P_guard  P_middle    P_exit Nickname            Link                                                                           Exit Guard CC AS_num    AS_name"[:short]
+        else:
+            print "       CW    adv_bw   P_guard  P_middle    P_exit Nickname            Fingerprint                              Exit Guard CC AS_num    AS_name"[:short]
         if count < 0: count = len(sorted_groups)
         for formatted_group, weight in sorted_groups[:count]:
             print formatted_group[:short]
@@ -190,6 +197,8 @@ if '__main__' == __name__:
                      help="group relays by country")
     parser.add_option_group(group)
     group = OptionGroup(parser, "Display options")
+    group.add_option("-l", "--links", action="store_true",
+                     help="display links to the Atlas service instead of fingerprints")
     group.add_option("-t", "--top", type="int", default=10, metavar="NUM",
                      help="display only the top results (default: %default; -1 for all)")
     group.add_option("-s", "--short", action="store_true",
@@ -219,8 +228,10 @@ if '__main__' == __name__:
                      by_as_number=options.by_as)
     sorted_groups = stats.format_and_sort_groups(grouped_relays,
                     by_country=options.by_country,
-                    by_as_number=options.by_as)
+                    by_as_number=options.by_as,
+                    links=options.links)
     stats.print_groups(sorted_groups, options.top,
                        by_country=options.by_country,
                        by_as_number=options.by_as,
-                       short=70 if options.short else None)
+                       short=70 if options.short else None,
+                       links=options.links)
