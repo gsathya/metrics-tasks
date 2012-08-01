@@ -201,6 +201,8 @@ if '__main__' == __name__:
 
     if options.download:
         download_details_file()
+        print "Downloaded details.json.  Re-run without --download option."
+        exit()
 
     if not os.path.exists('details.json'):
         parser.error("Did not find details.json.  Re-run with --download.")
