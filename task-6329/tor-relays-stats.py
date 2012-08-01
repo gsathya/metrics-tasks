@@ -129,7 +129,7 @@ class RelayStats(object):
 
     def print_groups(self, sorted_groups, count=10, by_country=False, by_as_number=False, short=None):
         print "       CW    adv_bw   P_guard  P_middle    P_exit Nickname            Fingerprint                              Exit Guard CC AS_num    AS_name"[:short]
-
+        if count < 0: count = len(sorted_groups)
         for formatted_group, weight in sorted_groups[:count]:
             print formatted_group[:short]
         if len(sorted_groups) > count:
@@ -191,7 +191,7 @@ if '__main__' == __name__:
     parser.add_option_group(group)
     group = OptionGroup(parser, "Display options")
     group.add_option("-t", "--top", type="int", default=10, metavar="NUM",
-                     help="display only the top results (default: %default)")
+                     help="display only the top results (default: %default; -1 for all)")
     group.add_option("-s", "--short", action="store_true",
                      help="cut the length of the line output at 70 chars")
     parser.add_option_group(group)
