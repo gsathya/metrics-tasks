@@ -188,7 +188,7 @@ if '__main__' == __name__:
     group.add_option("-g", "--guards-only", action="store_true",
                      help="select only relays suitable for guard position")
     group.add_option("-x", "--fast-exits-only", action="store_true",
-                     help="select only 100+ MBit/s exits allowing ports 80, 443, 554, and 1755")
+                     help="select only 100+ Mbit/s exits allowing ports 80, 443, 554, and 1755")
     parser.add_option_group(group)
     group = OptionGroup(parser, "Grouping options")
     group.add_option("-A", "--by-as", action="store_true", default=False,
