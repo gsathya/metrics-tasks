@@ -23,7 +23,7 @@ class RelayStats(object):
             self._data = json.load(file('details.json'))
         return self._data
 
-    def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False, inactive=False):
+    def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False, inactive=False, fast_exits_only=False):
         relays = []
         if countries:
             countries = [x.lower() for x in countries]
@@ -40,6 +40,31 @@ class RelayStats(object):
                 continue
             if guards_only and not relay.get('guard_probability', -1) > 0.0:
                 continue
+            if fast_exits_only:
+                if relay.get('bandwidth_rate', -1) < 12500 * 1024:
+                    continue
+                if relay.get('advertised_bandwidth', -1) < 5000 * 1024:
+                    continue
+                relevant_ports = set([80, 443, 554, 1755])
+                summary = relay.get('exit_policy_summary', {})
+                if 'accept' in summary:
+                    portlist = summary['accept']
+                elif 'reject' in summary:
+                    portlist = summary['reject']
+                else:
+                    continue
+                ports = []
+                for p in portlist:
+                    if '-' in p:
+                        ports.extend(range(int(p.split('-')[0]),
+                                           int(p.split('-')[1]) + 1))
+                    else:
+                        ports.append(int(p))
+                policy_ports = set(ports)
+                if 'accept' in summary and not relevant_ports.issubset(policy_ports):
+                    continue
+                if 'reject' in summary and not relevant_ports.isdisjoint(policy_ports):
+                    continue
             relays.append(relay)
         return relays
 
@@ -155,6 +180,8 @@ if '__main__' == __name__:
                      help="select only relays suitable for exit position")
     group.add_option("-g", "--guards-only", action="store_true",
                      help="select only relays suitable for guard position")
+    group.add_option("-x", "--fast-exits-only", action="store_true",
+                     help="select only 100+ MBit/s exits allowing ports 80, 443, 554, and 1755")
     parser.add_option_group(group)
     group = OptionGroup(parser, "Grouping options")
     group.add_option("-A", "--by-as", action="store_true", default=False,
@@ -183,7 +210,8 @@ if '__main__' == __name__:
                               as_sets=options.ases,
                               exits_only=options.exits_only,
                               guards_only=options.guards_only,
-                              inactive=options.inactive)
+                              inactive=options.inactive,
+                              fast_exits_only=options.fast_exits_only)
     grouped_relays = stats.group_relays(relays,
                      by_country=options.by_country,
                      by_as_number=options.by_as)
