@@ -4,4 +4,6 @@ lib/
 bin/
 in/
 results.csv
+Rplots.pdf
+*.png
 
