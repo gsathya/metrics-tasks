@@ -10,12 +10,15 @@ import json
 import operator
 import sys
 import os.path
+import socket
+import struct
 from optparse import OptionParser, OptionGroup
 import urllib
 
 class RelayStats(object):
     def __init__(self):
         self._data = None
+        self._mask = (2L<<24-1)-1
 
     @property
     def data(self):
@@ -25,6 +28,7 @@ class RelayStats(object):
 
     def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False, inactive=False, fast_exits_only=False):
         relays = []
+        network_data = {}
         if countries:
             countries = [x.lower() for x in countries]
         if as_sets:
@@ -65,7 +69,27 @@ class RelayStats(object):
                     continue
                 if 'reject' in summary and not relevant_ports.isdisjoint(policy_ports):
                     continue
-            relays.append(relay)
+            for ip in relay.get("or_addresses", []):
+                ip = struct.unpack('=L', socket.inet_aton(ip.split(':')[0]))[0]
+                network = ip & self._mask
+                if network_data.has_key(network):
+                    if len(network_data[network]) > 1:
+                        # assume current relay to have smallest exit_probability
+                        min_exit = relay.get('exit_probability')
+                        min_id = -1
+                        for id, value in enumerate(network_data[network]):
+                            if value.get('exit_probability') < min_exit:
+                                min_exit = value.get('exit_probability')
+                                min_id = id
+                        if min_id != -1:
+                            del network_data[network][min_id]
+                            network_data[network].append(relay)
+                    else:
+                        network_data[network].append(relay)
+                else:
+                    network_data[network] = [relay]
+        for relay_list in network_data.itervalues():
+            relays.extend(relay_list)
         return relays
 
     def group_relays(self, relays, by_country=False, by_as_number=False):
@@ -189,6 +213,8 @@ if '__main__' == __name__:
                      help="select only relays suitable for guard position")
     group.add_option("-x", "--fast-exits-only", action="store_true",
                      help="select only 100+ Mbit/s exits allowing ports 80, 443, 554, and 1755")
+    group.add_option("-w", "--almost-fast-exits-only", action="store_true",
+                     help="select only relays between 80 Mbit/s & 95 Mbit/s exits allowing ports 80, 443")
     parser.add_option_group(group)
     group = OptionGroup(parser, "Grouping options")
     group.add_option("-A", "--by-as", action="store_true", default=False,
@@ -222,7 +248,8 @@ if '__main__' == __name__:
                               exits_only=options.exits_only,
                               guards_only=options.guards_only,
                               inactive=options.inactive,
-                              fast_exits_only=options.fast_exits_only)
+                              fast_exits_only=options.fast_exits_only,
+                              almost_fast_exits_only=options.almost_fast_exits_only)
     grouped_relays = stats.group_relays(relays,
                      by_country=options.by_country,
                      by_as_number=options.by_as)
