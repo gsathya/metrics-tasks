@@ -26,7 +26,7 @@ class RelayStats(object):
             self._data = json.load(file('details.json'))
         return self._data
 
-    def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False, inactive=False, fast_exits_only=False):
+    def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False, inactive=False, fast_exits_only=False, almost_fast_exits_only=False):
         relays = []
         network_data = {}
         if countries:
@@ -44,27 +44,37 @@ class RelayStats(object):
                 continue
             if guards_only and not relay.get('guard_probability', -1) > 0.0:
                 continue
+            summary = relay.get('exit_policy_summary', {})
+            if 'accept' in summary:
+                portlist = summary['accept']
+            elif 'reject' in summary:
+                portlist = summary['reject']
+            else:
+                continue
+            ports = []
+            for p in portlist:
+                if '-' in p:
+                    ports.extend(range(int(p.split('-')[0]),
+                                       int(p.split('-')[1]) + 1))
+                else:
+                    ports.append(int(p))
+            policy_ports = set(ports)
             if fast_exits_only:
                 if relay.get('bandwidth_rate', -1) < 12500 * 1024:
                     continue
                 if relay.get('advertised_bandwidth', -1) < 5000 * 1024:
                     continue
                 relevant_ports = set([80, 443, 554, 1755])
-                summary = relay.get('exit_policy_summary', {})
-                if 'accept' in summary:
-                    portlist = summary['accept']
-                elif 'reject' in summary:
-                    portlist = summary['reject']
-                else:
+                if 'accept' in summary and not relevant_ports.issubset(policy_ports):
                     continue
-                ports = []
-                for p in portlist:
-                    if '-' in p:
-                        ports.extend(range(int(p.split('-')[0]),
-                                           int(p.split('-')[1]) + 1))
-                    else:
-                        ports.append(int(p))
-                policy_ports = set(ports)
+                if 'reject' in summary and not relevant_ports.isdisjoint(policy_ports):
+                    continue
+            if almost_fast_exits_only:
+                if not (80 * 125 * 1024 < relay.get('bandwidth_rate', -1) < 95 * 125 * 1024):
+                    continue
+                if not (2000 * 1024 < relay.get('advertised_bandwidth', -1) < 5000 * 1024):
+                    continue
+                relevant_ports = set([80, 443])
                 if 'accept' in summary and not relevant_ports.issubset(policy_ports):
                     continue
                 if 'reject' in summary and not relevant_ports.isdisjoint(policy_ports):
