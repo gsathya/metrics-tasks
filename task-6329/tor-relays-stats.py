@@ -110,6 +110,7 @@ class RelayStats(object):
     def __init__(self, options):
         self._data = None
         self._filters = self._create_filters(options)
+        self._get_group = self._get_group_function(options)
 
     @property
     def data(self):
@@ -135,6 +136,16 @@ class RelayStats(object):
             filters.append(FastExitFilter())
         return filters
 
+    def _get_group_function(self, options):
+        if options.by_country and options.by_as:
+            return lambda relay: (relay.get('country', None), relay.get('as_number', None))
+        elif options.by_country:
+            return lambda relay: relay.get('country', None)
+        elif options.by_as:
+            return lambda relay: relay.get('as_number', None)
+        else:
+            return lambda relay: relay.get('fingerprint')
+
     def get_relays(self):
         relays = []
         for relay in self.data['relays']:
@@ -147,17 +158,10 @@ class RelayStats(object):
                 relays.append(relay)
         return relays
 
-    def group_relays(self, relays, by_country=False, by_as_number=False):
+    def group_relays(self, relays):
         grouped_relays = {}
         for relay in relays:
-            if by_country and by_as_number:
-                key = (relay.get('country', None), relay.get('as_number', None))
-            elif by_country:
-                key = relay.get('country', None)
-            elif by_as_number:
-                key = relay.get('as_number', None)
-            else:
-                key = relay.get('fingerprint')
+            key = self._get_group(relay)
             if key not in grouped_relays:
                 grouped_relays[key] = []
             grouped_relays[key].append(relay)
@@ -301,9 +305,7 @@ if '__main__' == __name__:
 
     stats = RelayStats(options)
     relays = stats.get_relays()
-    grouped_relays = stats.group_relays(relays,
-                     by_country=options.by_country,
-                     by_as_number=options.by_as)
+    grouped_relays = stats.group_relays(relays)
     sorted_groups = stats.format_and_sort_groups(grouped_relays,
                     by_country=options.by_country,
                     by_as_number=options.by_as,
