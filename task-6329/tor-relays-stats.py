@@ -111,12 +111,29 @@ class RelayStats(object):
         self._data = None
         self._filters = self._create_filters(options)
         self._get_group = self._get_group_function(options)
+        self._relays = None
 
     @property
     def data(self):
         if not self._data:
             self._data = json.load(file('details.json'))
         return self._data
+
+    @property
+    def relays(self):
+        if self._relays:
+            return self._relays
+
+        self._relays = {}
+        for relay in self.data['relays']:
+            accepted = True
+            for f in self._filters:
+                if not f.accept(relay):
+                    accepted = False
+                    break
+            if accepted:
+                self.add_relay(relay)
+        return self._relays
 
     def _create_filters(self, options):
         filters = []
@@ -146,26 +163,11 @@ class RelayStats(object):
         else:
             return lambda relay: relay.get('fingerprint')
 
-    def get_relays(self):
-        relays = []
-        for relay in self.data['relays']:
-            accepted = True
-            for f in self._filters:
-                if not f.accept(relay):
-                    accepted = False
-                    break
-            if accepted:
-                relays.append(relay)
-        return relays
-
-    def group_relays(self, relays):
-        grouped_relays = {}
-        for relay in relays:
-            key = self._get_group(relay)
-            if key not in grouped_relays:
-                grouped_relays[key] = []
-            grouped_relays[key].append(relay)
-        return grouped_relays
+    def add_relay(self, relay):
+        key = self._get_group(relay)
+        if key not in self._relays:
+            self._relays[key] = []
+        self._relays[key].append(relay)
 
     def format_and_sort_groups(self, grouped_relays, by_country=False, by_as_number=False, links=False):
         formatted_groups = {}
@@ -304,9 +306,7 @@ if '__main__' == __name__:
         parser.error("Did not find details.json.  Re-run with --download.")
 
     stats = RelayStats(options)
-    relays = stats.get_relays()
-    grouped_relays = stats.group_relays(relays)
-    sorted_groups = stats.format_and_sort_groups(grouped_relays,
+    sorted_groups = stats.format_and_sort_groups(stats.relays,
                     by_country=options.by_country,
                     by_as_number=options.by_as,
                     links=options.links)
