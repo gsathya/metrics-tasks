@@ -249,14 +249,7 @@ class RelayStats(object):
                   selection_weights[2] * 100.0, selection_weights[3] * 100.0,
                   selection_weights[4] * 100.0)
 
-def download_details_file():
-    url = urllib.urlopen('https://onionoo.torproject.org/details?type=relay')
-    details_file = open("details.json", 'w')
-    details_file.write(url.read())
-    url.close()
-    details_file.close()
-
-if '__main__' == __name__:
+def create_option_parser():
     parser = OptionParser()
     parser.add_option("-d", "--download", action="store_true",
                       help="download details.json from Onionoo service")
@@ -291,6 +284,17 @@ if '__main__' == __name__:
     group.add_option("-s", "--short", action="store_true",
                      help="cut the length of the line output at 70 chars")
     parser.add_option_group(group)
+    return parser
+
+def download_details_file():
+    url = urllib.urlopen('https://onionoo.torproject.org/details?type=relay')
+    details_file = open("details.json", 'w')
+    details_file.write(url.read())
+    url.close()
+    details_file.close()
+
+if '__main__' == __name__:
+    parser = create_option_parser()
     (options, args) = parser.parse_args()
     if len(args) > 0:
         parser.error("Did not understand positional argument(s), use options instead.")
