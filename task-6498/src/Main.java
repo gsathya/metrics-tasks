@@ -32,8 +32,6 @@ public class Main {
     /* Parse server descriptors in in/server-descriptors/, not keeping a
      * parse history, and memorize bandwidth rate, burst, and observed
      * bandwidth for every server descriptor. */
-    System.out.print(new Date() + ": Parsing server descriptors");
-    int parsedServerDescriptors = 0;
     DescriptorReader descriptorReader =
         DescriptorSourceFactory.createDescriptorReader();
     descriptorReader.addDirectory(new File("in/server-descriptors"));
@@ -46,10 +44,6 @@ public class Main {
         if (!(descriptor instanceof ServerDescriptor)) {
           continue;
         }
-        if (++parsedServerDescriptors >= 1000) {
-          System.out.print(".");
-          parsedServerDescriptors = 0;
-        }
         ServerDescriptor serverDescriptor = (ServerDescriptor) descriptor;
         String digest = serverDescriptor.getServerDescriptorDigest();
         int[] bandwidths = new int[] {
@@ -61,15 +55,17 @@ public class Main {
     }
 
     /* Parse consensuses in in/consensuses/, keeping a parse history. */
-    System.out.print("\n" + new Date() + ": Parsing consensuses");
     descriptorReader = DescriptorSourceFactory.createDescriptorReader();
     descriptorReader.addDirectory(new File("in/consensuses"));
-    /* TODO When running this program in a cronjob, add a history file
-     * using descriptorReader.setExcludeFiles() and set the file writer
-     * below to append mode instead of overwrite mode. */
+    descriptorReader.setExcludeFiles(new File("parsed-consensuses"));
     descriptorFiles = descriptorReader.readDescriptors();
-    BufferedWriter bw = new BufferedWriter(new FileWriter("results.csv"));
-    bw.write("valid_after,min_rate,min_advbw,ports,relays,exit_prob\n");
+    File resultsFile = new File("task-6498-results.csv");
+    boolean writeHeader = !resultsFile.exists();
+    BufferedWriter bw = new BufferedWriter(new FileWriter(resultsFile,
+        true));
+    if (writeHeader) {
+      bw.write("valid_after,min_rate,min_advbw,ports,relays,exit_prob\n");
+    }
     while (descriptorFiles.hasNext()) {
       DescriptorFile descriptorFile = descriptorFiles.next();
       for (Descriptor descriptor : descriptorFile.getDescriptors()) {
@@ -83,7 +79,6 @@ public class Main {
         dateTimeFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
         String validAfter = dateTimeFormat.format(
             consensus.getValidAfterMillis());
-        System.out.print(".");
         SortedMap<String, Integer> bandwidthWeights =
             consensus.getBandwidthWeights();
         if (bandwidthWeights == null) {
@@ -273,7 +268,6 @@ public class Main {
       }
     }
     bw.close();
-    System.out.println("\n" + new Date() + ": Terminating.");
   }
 }
 
