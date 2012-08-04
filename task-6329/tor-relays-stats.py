@@ -18,7 +18,6 @@ import urllib
 class RelayStats(object):
     def __init__(self):
         self._data = None
-        self._mask = (2L<<24-1)-1
 
     @property
     def data(self):
@@ -79,9 +78,15 @@ class RelayStats(object):
                     continue
                 if 'reject' in summary and not relevant_ports.isdisjoint(policy_ports):
                     continue
+            or_addresses = relay.get("or_addresses")
+            if len(or_addresses) > 1:
+                print "[WARNING] - %s has more than two OR Addresses - %s" % relay.get("fingerprint"), or_addresses
             for ip in relay.get("or_addresses", []):
-                ip = struct.unpack('=L', socket.inet_aton(ip.split(':')[0]))[0]
-                network = ip & self._mask
+                ip, port = ip.rsplit(':', 1)
+                # skip if ipv6
+                if ':' in ip:
+                    continue
+                network = ip.rsplit('.', 1)[0]
                 if network_data.has_key(network):
                     if len(network_data[network]) > 1:
                         # assume current relay to have smallest exit_probability
