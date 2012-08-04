@@ -52,7 +52,7 @@ class RelayStats(object):
         for relay in self.data['relays']:
             if family:
                mentions = relay.get('family', [])
-               mentions.append('%s' % relay['fingerprint'])
+               mentions.append('$%s' % relay['fingerprint'])
                if ('$%s' % relay['fingerprint'] not in family_relays and \
                   relay['nickname'] not in family_relays if 'Named' in relay['flags'] else '') or \
                   (family_fingerprint not in mentions and \
