@@ -44,17 +44,16 @@ class FamilyFilter(BaseFilter):
             self._family_relays = [self._family_fingerprint] + found_relay.get('family', [])
 
     def accept(self, relay):
-       fingerprint = '$%s' % relay['fingerprint']
-       mentions = [fingerprint] + relay.get('family', [])
-       if fingerprint in self._family_relays:
-           return True
-       if 'Named' in relay['flags'] and relay['nickname'] in self._family_relays:
-           return True
-       if self._family_fingerprint in mentions:
-           return True
-       if self._family_nickname in mentions:
-           return True
-       return False
+        fingerprint = '$%s' % relay['fingerprint']
+        mentions = [fingerprint] + relay.get('family', [])
+        # Only show families as accepted by consensus (mutually listed relays)
+        listed = fingerprint in self._family_relays
+        listed = listed or 'Named' in relay['flags'] and relay['nickname'] in self._family_relays
+        mentioned = self._family_fingerprint in mentions
+        mentioned = mentioned or self._family_nickname in mentions
+        if listed and mentioned:
+            return True
+        return False
 
 class CountryFilter(BaseFilter):
     def __init__(self, countries=[]):
