@@ -69,11 +69,12 @@ class RelayStats(object):
                 if 'reject' in summary and not relevant_ports.isdisjoint(policy_ports):
                     continue
             if almost_fast_exits_only:
-                if not (80 * 125 * 1024 < relay.get('bandwidth_rate', -1) < 95 * 125 * 1024):
+                if not (relay.get('bandwidth_rate')  >= 80 * 125 * 1024 and \
+                        relay.get('advertised_bandwidth') >= 2000 * 1024 and \
+                        (not (relay.get('bandwidth_rate') <= 95 * 125 * 1024 and \
+                        relay.get('advertised_bandwidth') <= 5000 * 1024))):
                     continue
-                if not (2000 * 1024 < relay.get('advertised_bandwidth', -1) < 5000 * 1024):
-                    continue
-                relevant_ports = set([80, 443])
+                relevant_ports = set([80, 443, 554, 1755])
                 if 'accept' in summary and not relevant_ports.issubset(policy_ports):
                     continue
                 if 'reject' in summary and not relevant_ports.isdisjoint(policy_ports):
