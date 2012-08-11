@@ -14,10 +14,134 @@ import socket
 import struct
 from optparse import OptionParser, OptionGroup
 import urllib
+import re
+from abc import abstractmethod
+
+class BaseFilter(object):
+    @abstractmethod
+    def accept(self, relay):
+        pass
+
+class RunningFilter(BaseFilter):
+    def accept(self, relay):
+        return relay['running']
+
+class FamilyFilter(BaseFilter):
+    def __init__(self, family, all_relays):
+        self._family_fingerprint = None
+        self._family_nickname = None
+        self._family_relays = []
+        found_relay = None
+        for relay in all_relays:
+            if len(family) == 40 and relay['fingerprint'] == family:
+                found_relay = relay
+                break
+            if len(family) < 20 and 'Named' in relay['flags'] and relay['nickname'] == family:
+                found_relay = relay
+                break
+        if found_relay:
+            self._family_fingerprint = '$%s' % found_relay['fingerprint']
+            if 'Named' in found_relay['flags']:
+                self._family_nickname = found_relay['nickname']
+            self._family_relays = [self._family_fingerprint] + found_relay.get('family', [])
+
+    def accept(self, relay):
+        fingerprint = '$%s' % relay['fingerprint']
+        mentions = [fingerprint] + relay.get('family', [])
+        # Only show families as accepted by consensus (mutually listed relays)
+        listed = fingerprint in self._family_relays
+        listed = listed or 'Named' in relay['flags'] and relay['nickname'] in self._family_relays
+        mentioned = self._family_fingerprint in mentions
+        mentioned = mentioned or self._family_nickname in mentions
+        if listed and mentioned:
+            return True
+        return False
+
+class CountryFilter(BaseFilter):
+    def __init__(self, countries=[]):
+        self._countries = [x.lower() for x in countries]
+
+    def accept(self, relay):
+        return relay.get('country', None) in self._countries
+
+class ASFilter(BaseFilter):
+    def __init__(self, as_sets=[]):
+        self._as_sets = [x if not x.isdigit() else "AS" + x for x in as_sets]
+
+    def accept(self, relay):
+        return relay.get('as_number', None) in self._as_sets
+
+class ExitFilter(BaseFilter):
+    def accept(self, relay):
+        return relay.get('exit_probability', -1) > 0.0
+
+class GuardFilter(BaseFilter):
+    def accept(self, relay):
+        return relay.get('guard_probability', -1) > 0.0
+
+class FastExitFilter(BaseFilter):
+    def accept(self, relay):
+        if relay.get('bandwidth_rate', -1) < 12500 * 1024:
+            return False
+        if relay.get('advertised_bandwidth', -1) < 5000 * 1024:
+            return False
+        relevant_ports = set([80, 443, 554, 1755])
+        summary = relay.get('exit_policy_summary', {})
+        if 'accept' in summary:
+            portlist = summary['accept']
+        elif 'reject' in summary:
+            portlist = summary['reject']
+        else:
+            return False
+        ports = []
+        for p in portlist:
+            if '-' in p:
+                ports.extend(range(int(p.split('-')[0]),
+                                   int(p.split('-')[1]) + 1))
+            else:
+                ports.append(int(p))
+        policy_ports = set(ports)
+        if 'accept' in summary and not relevant_ports.issubset(policy_ports):
+            return False
+        if 'reject' in summary and not relevant_ports.isdisjoint(policy_ports):
+            return False
+        return True
+
+class AlmostFastExitFilter(BaseFilter):
+    def accept(self, relay):
+        if not (relay.get('bandwidth_rate')  >= 80 * 125 * 1024 and \
+                relay.get('advertised_bandwidth') >= 2000 * 1024 and \
+                (not (relay.get('bandwidth_rate') <= 95 * 125 * 1024 and \
+                relay.get('advertised_bandwidth') <= 5000 * 1024))):
+            return False
+        relevant_ports = set([80, 443, 554, 1755])
+        summary = relay.get('exit_policy_summary', {})
+        if 'accept' in summary:
+            portlist = summary['accept']
+        elif 'reject' in summary:
+            portlist = summary['reject']
+        else:
+            return False
+        ports = []
+        for p in portlist:
+            if '-' in p:
+                ports.extend(range(int(p.split('-')[0]),
+                                   int(p.split('-')[1]) + 1))
+            else:
+                ports.append(int(p))
+        policy_ports = set(ports)
+        if 'accept' in summary and not relevant_ports.issubset(policy_ports):
+            return False
+        if 'reject' in summary and not relevant_ports.isdisjoint(policy_ports):
+            return False
+        return True
 
 class RelayStats(object):
-    def __init__(self):
+    def __init__(self, options):
         self._data = None
+        self._filters = self._create_filters(options)
+        self._get_group = self._get_group_function(options)
+        self._relays = None
 
     @property
     def data(self):
@@ -25,104 +149,87 @@ class RelayStats(object):
             self._data = json.load(file('details.json'))
         return self._data
 
-    def get_relays(self, countries=[], as_sets=[], exits_only=False, guards_only=False, inactive=False, fast_exits_only=False, almost_fast_exits_only=False):
-        relays = []
+    @property
+    def relays(self):
+        if self._relays:
+            return self._relays
+
         network_data = {}
-        if countries:
-            countries = [x.lower() for x in countries]
-        if as_sets:
-            as_sets = [x if not x.isdigit() else "AS" + x for x in as_sets]
+        self._relays = {}
+        
         for relay in self.data['relays']:
-            if not inactive and inactive == relay['running']:
-                continue
-            if countries and not relay.get('country', ' ') in countries:
-                continue
-            if as_sets and not relay.get('as_number', ' ') in as_sets:
-                continue
-            if exits_only and not relay.get('exit_probability', -1) > 0.0:
-                continue
-            if guards_only and not relay.get('guard_probability', -1) > 0.0:
-                continue
-            summary = relay.get('exit_policy_summary', {})
-            if 'accept' in summary:
-                portlist = summary['accept']
-            elif 'reject' in summary:
-                portlist = summary['reject']
-            else:
-                continue
-            ports = []
-            for p in portlist:
-                if '-' in p:
-                    ports.extend(range(int(p.split('-')[0]),
-                                       int(p.split('-')[1]) + 1))
-                else:
-                    ports.append(int(p))
-            policy_ports = set(ports)
-            if fast_exits_only:
-                if relay.get('bandwidth_rate', -1) < 12500 * 1024:
-                    continue
-                if relay.get('advertised_bandwidth', -1) < 5000 * 1024:
-                    continue
-                relevant_ports = set([80, 443, 554, 1755])
-                if 'accept' in summary and not relevant_ports.issubset(policy_ports):
-                    continue
-                if 'reject' in summary and not relevant_ports.isdisjoint(policy_ports):
-                    continue
-            if almost_fast_exits_only:
-                if not (relay.get('bandwidth_rate')  >= 80 * 125 * 1024 and \
-                        relay.get('advertised_bandwidth') >= 2000 * 1024 and \
-                        (not (relay.get('bandwidth_rate') <= 95 * 125 * 1024 and \
-                        relay.get('advertised_bandwidth') <= 5000 * 1024))):
-                    continue
-                relevant_ports = set([80, 443, 554, 1755])
-                if 'accept' in summary and not relevant_ports.issubset(policy_ports):
-                    continue
-                if 'reject' in summary and not relevant_ports.isdisjoint(policy_ports):
-                    continue
-            or_addresses = relay.get("or_addresses")
-            if len(or_addresses) > 1:
-                print "[WARNING] - %s has more than two OR Addresses - %s" % relay.get("fingerprint"), or_addresses
-            for ip in relay.get("or_addresses", []):
-                ip, port = ip.rsplit(':', 1)
-                # skip if ipv6
-                if ':' in ip:
-                    continue
-                network = ip.rsplit('.', 1)[0]
-                if network_data.has_key(network):
-                    if len(network_data[network]) > 1:
-                        # assume current relay to have smallest exit_probability
-                        min_exit = relay.get('exit_probability')
-                        min_id = -1
-                        for id, value in enumerate(network_data[network]):
-                            if value.get('exit_probability') < min_exit:
-                                min_exit = value.get('exit_probability')
-                                min_id = id
-                        if min_id != -1:
-                            del network_data[network][min_id]
+            accepted = True
+            for f in self._filters:
+                if not f.accept(relay):
+                    accepted = False
+                    break
+            if accepted:
+                or_addresses = relay.get("or_addresses")
+                if len(or_addresses) > 1:
+                    print "[WARNING] - %s has more than two OR Addresses - %s" % relay.get("fingerprint"), or_addresses
+                for ip in relay.get("or_addresses", []):
+                    ip, port = ip.rsplit(':', 1)
+                    # skip if ipv6
+                    if ':' in ip:
+                        continue
+                    network = ip.rsplit('.', 1)[0]
+                    if network_data.has_key(network):
+                        if len(network_data[network]) > 1:
+                            # assume current relay to have smallest exit_probability
+                            min_exit = relay.get('exit_probability')
+                            min_id = -1
+                            for id, value in enumerate(network_data[network]):
+                                if value.get('exit_probability') < min_exit:
+                                    min_exit = value.get('exit_probability')
+                                    min_id = id
+                            if min_id != -1:
+                                del network_data[network][min_id]
+                                network_data[network].append(relay)
+                        else:
                             network_data[network].append(relay)
                     else:
-                        network_data[network].append(relay)
-                else:
-                    network_data[network] = [relay]
+                        network_data[network] = [relay]
+        
         for relay_list in network_data.itervalues():
-            relays.extend(relay_list)
-        return relays
+            for relay in relay_list:
+                self.add_relay(relay)
+        return self._relays
 
-    def group_relays(self, relays, by_country=False, by_as_number=False):
-        grouped_relays = {}
-        for relay in relays:
-            if by_country and by_as_number:
-                key = (relay.get('country', None), relay.get('as_number', None))
-            elif by_country:
-                key = relay.get('country', None)
-            elif by_as_number:
-                key = relay.get('as_number', None)
-            else:
-                key = relay.get('fingerprint')
-            if key not in grouped_relays:
-                grouped_relays[key] = []
-            grouped_relays[key].append(relay)
-        return grouped_relays
+    def _create_filters(self, options):
+        filters = []
+        if not options.inactive:
+            filters.append(RunningFilter())
+        if options.family:
+            filters.append(FamilyFilter(options.family, self.data['relays']))
+        if options.country:
+            filters.append(CountryFilter(options.country))
+        if options.ases:
+            filters.append(ASFilter(options.ases))
+        if options.exits_only:
+            filters.append(ExitFilter())
+        if options.guards_only:
+            filters.append(GuardFilter())
+        if options.fast_exits_only:
+            filters.append(FastExitFilter())
+        if options.almost_fast_exits_only:
+            filters.append(AlmostFastExitFilter())
+        return filters
+
+    def _get_group_function(self, options):
+        if options.by_country and options.by_as:
+            return lambda relay: (relay.get('country', None), relay.get('as_number', None))
+        elif options.by_country:
+            return lambda relay: relay.get('country', None)
+        elif options.by_as:
+            return lambda relay: relay.get('as_number', None)
+        else:
+            return lambda relay: relay.get('fingerprint')
+
+    def add_relay(self, relay):
+        key = self._get_group(relay)
+        if key not in self._relays:
+            self._relays[key] = []
+        self._relays[key].append(relay)
 
     def format_and_sort_groups(self, grouped_relays, by_country=False, by_as_number=False, links=False):
         formatted_groups = {}
@@ -204,14 +311,7 @@ class RelayStats(object):
                   selection_weights[2] * 100.0, selection_weights[3] * 100.0,
                   selection_weights[4] * 100.0)
 
-def download_details_file():
-    url = urllib.urlopen('https://onionoo.torproject.org/details?type=relay')
-    details_file = open("details.json", 'w')
-    details_file.write(url.read())
-    url.close()
-    details_file.close()
-
-if '__main__' == __name__:
+def create_option_parser():
     parser = OptionParser()
     parser.add_option("-d", "--download", action="store_true",
                       help="download details.json from Onionoo service")
@@ -225,6 +325,8 @@ if '__main__' == __name__:
                      help="select only relays from country with code CC", metavar="CC")
     group.add_option("-e", "--exits-only", action="store_true",
                      help="select only relays suitable for exit position")
+    group.add_option("-f", "--family", action="store", type="string", metavar="RELAY",
+                     help="select family by fingerprint or nickname (for named relays)")
     group.add_option("-g", "--guards-only", action="store_true",
                      help="select only relays suitable for guard position")
     group.add_option("-x", "--fast-exits-only", action="store_true",
@@ -246,10 +348,23 @@ if '__main__' == __name__:
     group.add_option("-s", "--short", action="store_true",
                      help="cut the length of the line output at 70 chars")
     parser.add_option_group(group)
+    return parser
+
+def download_details_file():
+    url = urllib.urlopen('https://onionoo.torproject.org/details?type=relay')
+    details_file = open("details.json", 'w')
+    details_file.write(url.read())
+    url.close()
+    details_file.close()
+
+if '__main__' == __name__:
+    parser = create_option_parser()
     (options, args) = parser.parse_args()
     if len(args) > 0:
         parser.error("Did not understand positional argument(s), use options instead.")
 
+    if options.family and not re.match(r'^[A-F0-9]{40}$', options.family) and not re.match(r'^[A-Za-z0-9]{1,19}$', options.family):
+        parser.error("Not a valid fingerprint or nickname: %s" % options.family)
     if options.download:
         download_details_file()
         print "Downloaded details.json.  Re-run without --download option."
@@ -258,18 +373,8 @@ if '__main__' == __name__:
     if not os.path.exists('details.json'):
         parser.error("Did not find details.json.  Re-run with --download.")
 
-    stats = RelayStats()
-    relays = stats.get_relays(countries=options.country,
-                              as_sets=options.ases,
-                              exits_only=options.exits_only,
-                              guards_only=options.guards_only,
-                              inactive=options.inactive,
-                              fast_exits_only=options.fast_exits_only,
-                              almost_fast_exits_only=options.almost_fast_exits_only)
-    grouped_relays = stats.group_relays(relays,
-                     by_country=options.by_country,
-                     by_as_number=options.by_as)
-    sorted_groups = stats.format_and_sort_groups(grouped_relays,
+    stats = RelayStats(options)
+    sorted_groups = stats.format_and_sort_groups(stats.relays,
                     by_country=options.by_country,
                     by_as_number=options.by_as,
                     links=options.links)

@@ -50,7 +50,5 @@ Generate the graph:
 
   $ R --slave -f bridge-scaling.R
 
-Build the PDF:
-
-  $ pdflatex bridge-scaling.tex
+Build the PDF in tech-reports.git/2012/bridge-scaling/ .
 

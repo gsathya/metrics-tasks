@@ -16,8 +16,8 @@ geom_point() +
 facet_grid(variable ~ ., scales = "free_y") +
 scale_x_continuous(name = "\nRunning bridges (2012-01-31 = 838, red)") +
 scale_y_continuous(name = "") +
-scale_colour_manual(name = "", value = c("black", "red")) +
+scale_colour_manual(name = "", values = c("black", "red")) +
 opts(legend.position = "none",
   title = "Scalability of Tor's bridge infrastructure\n")
-ggsave("bridge-scaling.png", width = 7, height = 6, dpi = 100)
+ggsave("bridge-scaling-graph.pdf", width = 7, height = 6, dpi = 100)
 
