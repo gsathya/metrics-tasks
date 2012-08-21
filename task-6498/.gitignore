@@ -3,7 +3,8 @@
 lib/
 bin/
 in/
-results.csv
+parsed-consensuses
+task-6498-results.csv
 Rplots.pdf
 *.png
 
