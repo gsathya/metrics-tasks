@@ -64,7 +64,8 @@ public class Main {
     BufferedWriter bw = new BufferedWriter(new FileWriter(resultsFile,
         true));
     if (writeHeader) {
-      bw.write("valid_after,min_rate,min_advbw,ports,relays,exit_prob\n");
+      bw.write("valid_after,min_rate,min_advbw,ports,same_network,relays,"
+          + "exit_prob\n");
     }
     while (descriptorFiles.hasNext()) {
       DescriptorFile descriptorFile = descriptorFiles.next();
@@ -184,17 +185,11 @@ public class Main {
          * consider the fastest 2 relays per /24 with respect to exit
          * probability.  Also vary requirements.  Overall, analyze these
          * settings:
-         *  - rate >= 11875, advbw >= 5000, exit to 80, 443, 554, 1755
-         *  - rate >= 11875, advbw >= 5000, exit to 80, 443
-         *  - rate >= 11875, advbw >= 4000, exit to 80, 443, 554, 1755
-         *  - rate >= 11875, advbw >= 3000, exit to 80, 443, 554, 1755
-         *  - rate >= 11875, advbw >= 2000, exit to 80, 443, 554, 1755
-         *  - rate >= 11875, advbw >= 1000, exit to 80, 443, 554, 1755
+         *  - rate >= 11875, advbw >= 5000, exit to 80, 443, 554, 1755,
+         *    at most 2 relays per /24
          *  - rate >= 10000, advbw >= 2000, exit to 80, 443 */
-        int[] minimumBandwidthRates = new int[] { 11875, 11875, 11875,
-            11875, 11875, 11875, 10000 };
-        int[] minimumAdvertisedBandwidths = new int[] { 5000, 5000, 4000,
-            3000, 2000, 1000, 2000 };
+        int[] minimumBandwidthRates = new int[] { 11875, 10000 };
+        int[] minimumAdvertisedBandwidths = new int[] { 5000, 2000 };
         Set<Integer> defaultPorts = new HashSet<Integer>();
         defaultPorts.add(80);
         defaultPorts.add(443);
@@ -206,15 +201,12 @@ public class Main {
         List<Set<Integer>> requiredPorts = new ArrayList<Set<Integer>>();
         requiredPorts.add(defaultPorts);
         requiredPorts.add(reducedPorts);
-        requiredPorts.add(defaultPorts);
-        requiredPorts.add(defaultPorts);
-        requiredPorts.add(defaultPorts);
-        requiredPorts.add(defaultPorts);
-        requiredPorts.add(reducedPorts);
+        boolean[] sameNetworks = new boolean[] { true, false };
         for (int i = 0; i < minimumBandwidthRates.length; i++) {
           int minimumBandwidthRate = minimumBandwidthRates[i];
           int minimumAdvertisedBandwidth = minimumAdvertisedBandwidths[i];
           Set<Integer> minimumRequiredPorts = requiredPorts.get(i);
+          boolean sameNetwork = sameNetworks[i];
           Map<String, List<Double>> exitWeightFractionsByAddressParts =
               new HashMap<String, List<Double>>();
           for (String fingerprint : fingerprints) {
@@ -242,9 +234,11 @@ public class Main {
           int totalRelays = 0;
           for (List<Double> weightFractions :
               exitWeightFractionsByAddressParts.values()) {
-            Collections.sort(weightFractions);
-            while (weightFractions.size() > 2) {
-              weightFractions.remove(0);
+            if (sameNetwork) {
+              Collections.sort(weightFractions);
+              while (weightFractions.size() > 2) {
+                weightFractions.remove(0);
+              }
             }
             for (double weightFraction : weightFractions) {
               totalExitWeightFraction += weightFraction;
@@ -259,10 +253,11 @@ public class Main {
            *  - ports: "80-443" or "80-443-554-1755"
            *  - relays: number of relays matching the requirements
            *  - exit_prob: sum of exit probabilities */
-          bw.write(String.format("%s,%d,%d,%s,%d,%.4f%n",
+          bw.write(String.format("%s,%d,%d,%s,%s,%d,%.4f%n",
               validAfter, minimumBandwidthRate,
               minimumAdvertisedBandwidth, minimumRequiredPorts.size() <= 2
-              ? "80-443" : "80-443-554-1755", totalRelays,
+              ? "80-443" : "80-443-554-1755",
+              sameNetwork ? "TRUE" : "FALSE", totalRelays,
               totalExitWeightFraction));
         }
       }
