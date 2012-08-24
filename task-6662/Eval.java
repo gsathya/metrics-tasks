@@ -1,7 +1,7 @@
 import java.io.*;
 import java.util.*;
 public class Eval {
-  /* curl "https://onionoo.torproject.org/details?running=true&type=relay" > details.json */
+  /* curl "https://onionoo.torproject.org/details?type=relay" > details.json */
   public static void main(String[] args) throws Exception {
 
     /* Parse relays and their families from details.json.  Also create a
@@ -16,7 +16,8 @@ public class Eval {
         new TreeMap<String, Set<String>>();
     Map<String, String> nicknames = new HashMap<String, String>();
     Map<String, String> namedRelays = new HashMap<String, String>();
-    Set<String> unnamedRelays = new HashSet<String>();
+    Set<String> runningRelays = new HashSet<String>(),
+        unnamedRelays = new HashSet<String>();
     while ((line = br.readLine()) != null) {
       if (isParsingFamily) {
         if (line.startsWith("  ")) {
@@ -32,6 +33,10 @@ public class Eval {
       } else if (line.startsWith("\"fingerprint\":")) {
         fingerprint = "$" + line.split(":")[1].split("\"")[1];
         nicknames.put(fingerprint, nickname);
+      } else if (line.startsWith("\"running\":")) {
+        if (line.endsWith("true,")) {
+          runningRelays.add(nickname + "~" + fingerprint.substring(1, 5));
+        }
       } else if (line.startsWith("\"flags\":")) {
         if (line.contains("\"Named\"")) {
           if (namedRelays.containsKey(nickname)) {
@@ -54,7 +59,8 @@ public class Eval {
     SortedSet<String> unconfirmedFamilyStrings = new TreeSet<String>();
     System.out.println("Complete family relationships as reported by "
         + "running relays, not mutually confirmed and possibly "
-        + "containing nicknames of unnamed relays:");
+        + "containing nicknames of unnamed relays, including non-running "
+        + "relays:");
     for (Map.Entry<String, Set<String>> e : listedRelays.entrySet()) {
       StringBuilder sb = new StringBuilder();
       sb.append(nicknames.get(e.getKey()) + "~"
@@ -131,7 +137,8 @@ public class Eval {
       confirmedFamilyStrings.add(sb.toString());
     }
     System.out.println("Mutually confirmed families with two or more "
-            + "family members, without reporting relay itself");
+        + "family members, without reporting relay itself, including "
+        + "non-running relays");
     for (String s : confirmedFamilyStrings) {
       System.out.println(s);
     }
@@ -162,7 +169,7 @@ public class Eval {
       overlappingFamilyStrings.add(sb.toString());
     }
     System.out.println("Possibly overlapping families with two or more "
-        + "family members:");
+        + "family members, including non-running relays:");
     for (String s : overlappingFamilyStrings) {
       System.out.println(s);
     }
@@ -206,8 +213,30 @@ public class Eval {
       extendedFamilyStrings.add(sb.toString());
     }
     System.out.println("Extended families based on merging possibly "
-        + "overlapping families:");
+        + "overlapping families, including non-running relays:");
     for (String s : extendedFamilyStrings) {
+      System.out.println(s);
+    }
+    System.out.println();
+
+    /* Filter non-running relays from extended families. */
+    SortedSet<String> extendedFamilyRunningRelaysStrings =
+        new TreeSet<String>();
+    for (SortedSet<String> extendedFamily : extendedFamilies) {
+      StringBuilder sb = new StringBuilder();
+      int written = 0;
+      for (String relay : extendedFamily) {
+        if (runningRelays.contains(relay)) {
+          sb.append((written++ > 0 ? " " : "") + relay);
+        }
+      }
+      if (written > 1) {
+        extendedFamilyRunningRelaysStrings.add(sb.toString());
+      }
+    }
+    System.out.println("Extended families, excluding non-running relays "
+        + "that may previously have helped merge overlapping families:");
+    for (String s : extendedFamilyRunningRelaysStrings) {
       System.out.println(s);
     }
   }
