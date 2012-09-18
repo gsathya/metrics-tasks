@@ -1,0 +1,7 @@
+GeoIP.dat
+GeoIPASNum.dat
+entropy.csv
+in/
+pygeoip/
+stem/
+
