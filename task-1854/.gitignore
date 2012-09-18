@@ -4,4 +4,6 @@ entropy.csv
 in/
 pygeoip/
 stem/
+Rplots.pdf
+*.png
 
