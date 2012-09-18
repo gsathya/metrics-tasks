@@ -36,7 +36,6 @@ class Router:
         self.as_no = None
         self.is_exit = None
         self.is_guard = None
-        self.cw = None
 
     def add_router_info(self, values):
            hex_digest = b2a_hex(a2b_base64(values[2]+"="))
@@ -116,20 +115,8 @@ def run(file_name):
     if len(routers) <= 0:
         return
 
-    # calculate consensus weight for each relay
-    for router in routers:
-        if not router.bandwidth:
-            # should we consider relays with 'None' bandwidth?
-            continue
-        if router.is_guard and router.is_exit:
-            router.cw = Wgd*Wed*router.bandwidth
-        elif router.is_guard:
-            router.cw = Wgg*router.bandwidth
-        elif router.is_exit:
-            router.cw = Wee*router.bandwidth
-
     # sort list of routers based on consensus weight
-    routers.sort(key=lambda router: router.cw)
+    routers.sort(key=lambda router: router.bandwidth)
 
     while(len(routers)>1):
         total_bw, total_exit_bw, total_guard_bw = 0, 0, 0
@@ -137,7 +124,7 @@ def run(file_name):
         bw_countries, bw_as = {}, {}
         max_entropy, max_entropy_as, max_entropy_guard, max_entropy_country, max_entropy_exit = 0.0, 0.0, 0.0, 0.0, 0.0
         # first relay has smallest cw
-        min_cw = routers[0].cw
+        min_cw = routers[0].bandwidth
 
         for router in routers:
             if not router.bandwidth:
@@ -223,11 +210,8 @@ def run(file_name):
                                        str(max_entropy_as)]))
 
         # remove routers with min cw
-        for id, router in enumerate(routers):
-            if router.cw == min_cw:
-                del routers[id]
-            else:
-                break
+        while len(routers) > 0 and routers[0].bandwidth == min_cw:
+            del routers[0]
 
     return '\n'.join(result_string)
 
