@@ -82,7 +82,7 @@ def parse_bw_weights(values):
     except:
         return None
 
-def run(file_name):
+def run(file_name, descriptor_bw):
     routers = []
     router = None
     result_string = []
@@ -114,6 +114,11 @@ def run(file_name):
 
     if len(routers) <= 0:
         return
+
+    # monkey patch consensus bandwidth to descriptor bandwidth,
+    # this might break future feature additions.
+    if descriptor_bw:
+        router.bandwidth = router.advertised_bw
 
     # sort list of routers based on consensus weight
     routers.sort(key=lambda router: router.bandwidth)
@@ -229,6 +234,8 @@ def parse_args():
                       help="Output filename")
     parser.add_option("-c", "--consensus", dest="consensus", default="in/consensus",
                       help="Input consensus dir")
+    parser.add_option("-d", "--use-descriptor-bw", dest="descriptor_bw", default=False,
+                      action="store_true", help="Use descriptor bandwidth")
 
     (options, args) = parser.parse_args()
 
@@ -241,6 +248,6 @@ if __name__ == "__main__":
 
     with open(options.output, 'w') as f:
         for file_name in os.listdir(options.consensus):
-            string = run(os.path.join(options.consensus, file_name))
+            string = run(os.path.join(options.consensus, file_name), options.descriptor_bw)
             if string:
                 f.write("%s\n" % (string))
