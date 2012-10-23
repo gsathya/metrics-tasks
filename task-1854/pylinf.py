@@ -1,19 +1,10 @@
 """
-Usage - python pyentropy.py -h
+Usage - python pylinf.py -h
 Output - A CSV file of the format (without newlines):
          <valid-after>,
-         <min consensus weight>,
+         <min adv_bw>,
          <number of relays>,
-         <entropy for all nodes>,
-         <max entropy for all nodes>,
-         <entropy for exit nodes>,
-         <max entropy for exit nodes>,
-         <entropy for guard nodes>,
-         <max entropy for guard nodes>,
-         <entropy for countries>,
-         <max entropy for countries>,
-         <entropy for AS>,
-         <max entropy for AS>
+         <linf>
 rsync -arz --delete metrics.torproject.org::metrics-recent/relay-descriptors/consensuses in
 """
 
@@ -30,6 +21,7 @@ from stem.descriptor.server_descriptor import RelayDescriptor, BridgeDescriptor
 
 class Router:
     def __init__(self):
+        self.prob = None
         self.bandwidth = None
         self.advertised_bw = None
         self.country = None
@@ -62,7 +54,7 @@ class Router:
 
     def get_advertised_bw(self, hex_digest):
         try:
-            with open(options.server_desc+hex_digest) as f:
+            with open(options.server_desc+'/'+hex_digest) as f:
                 data = f.read()
 
             desc_iter = stem.descriptor.server_descriptor.parse_file(StringIO.StringIO(data))
@@ -115,103 +107,52 @@ def run(file_name):
     if len(routers) <= 0:
         return
 
-    # sort list of routers based on consensus weight
-    routers.sort(key=lambda router: router.bandwidth)
+    # Find probability of each relay in pristine consensus
+    total_bw = 0
+    for router in routers:
+        total_bw += router.bandwidth
 
-    while(len(routers)>1):
-        total_bw, total_exit_bw, total_guard_bw = 0, 0, 0
-        guards_no, exits_no = 0, 0
-        bw_countries, bw_as = {}, {}
-        max_entropy, max_entropy_as, max_entropy_guard, max_entropy_country, max_entropy_exit = 0.0, 0.0, 0.0, 0.0, 0.0
-        # first relay has smallest cw
-        min_cw = routers[0].bandwidth
+    for router in routers:
+        router.prob = float(router.bandwidth)/float(total_bw)
+
+    # sort list of routers based on adv_bw
+    routers.sort(key=lambda router: router.advertised_bw)
+
+    omitted_routers = 0
+    min_adv_bw = routers[0].advertised_bw
+
+    while(omitted_routers<=len(routers)):
+        total_bw = 0
+
+        # this is the difference btw probability of choosing a relay in pristine
+        # consensus and probability of choosing the same relay in the modified
+        # consensus; prob_diff is the list of such differences for all relays
+        prob_diff = []
 
         for router in routers:
-            if not router.bandwidth:
-                continue
             total_bw += router.bandwidth
-            if router.is_guard and router.is_exit:
-                total_guard_bw += Wgd*router.bandwidth
-                total_exit_bw += Wed*router.bandwidth
-                guards_no += 1
-                exits_no += 1
-            elif router.is_guard:
-                total_guard_bw += Wgg*router.bandwidth
-                guards_no += 1
-            elif router.is_exit:
-                total_exit_bw += Wee*router.bandwidth
-                exits_no += 1
-            if bw_countries.has_key(router.country):
-                bw_countries[router.country] += router.bandwidth
-            else:
-                bw_countries[router.country] = router.bandwidth
-            if bw_as.has_key(router.as_no):
-                bw_as[router.as_no] += router.bandwidth
-            else:
-                bw_as[router.as_no] = router.bandwidth
 
-        if total_bw == 0:
-            return
-
-        entropy, entropy_exit, entropy_guard, entropy_country, entropy_as = 0.0, 0.0, 0.0, 0.0, 0.0
         for router in routers:
-            p = float(router.bandwidth) / float(total_bw)
-            if p != 0:
-                entropy += -(p * math.log(p, 2))
-            if router.is_guard and router.is_exit:
-                p = float(Wgd*router.bandwidth) / float(total_guard_bw)
-                if p != 0:
-                    entropy_guard += -(p * math.log(p, 2))
-                p = float(Wed*router.bandwidth) / float(total_exit_bw)
-                if p != 0:
-                    entropy_exit += -(p * math.log(p, 2))
-            elif router.is_guard:
-                p = float(Wgg*router.bandwidth) / float(total_guard_bw)
-                if p != 0:
-                    entropy_guard += -(p * math.log(p, 2))
-            elif router.is_exit:
-                p = float(Wee*router.bandwidth) / float(total_exit_bw)
-                if p != 0:
-                    entropy_exit += -(p * math.log(p, 2))
-
-        for country in bw_countries.iterkeys():
-            p = float(bw_countries[country]) / float(total_bw)
-            if p != 0:
-                entropy_country += -(p * math.log(p, 2))
-
-        for as_no in bw_as.iterkeys():
-            p = float(bw_as[as_no]) / float(total_bw)
-            if p !=0:
-                entropy_as += -(p * math.log(p, 2))
-
-        # Entropy of uniform distribution of 'n' possible values: log(n)
-        max_entropy = math.log(len(routers), 2)
-        if guards_no:
-            max_entropy_guard = math.log(guards_no, 2)
-        if exits_no:
-            max_entropy_exit = math.log(exits_no, 2)
-        if bw_countries:
-            max_entropy_country = math.log(len(bw_countries), 2)
-        if bw_as:
-            max_entropy_as = math.log(len(bw_as), 2)
+            if router.bandwidth > 0:
+                new_prob = float(router.bandwidth)/float(total_bw)
+            else:
+                new_prob = 0
+            diff = abs(new_prob - router.prob)
+            prob_diff.append(diff)
 
         result_string.append(','.join([valid_after,
-                                       str(min_cw),
-                                       str(len(routers)),
-                                       str(entropy),
-                                       str(max_entropy),
-                                       str(entropy_exit),
-                                       str(max_entropy_exit),
-                                       str(entropy_guard),
-                                       str(max_entropy_guard),
-                                       str(entropy_country),
-                                       str(max_entropy_country),
-                                       str(entropy_as),
-                                       str(max_entropy_as)]))
+                                      str(min_adv_bw),
+                                      str(len(routers)-omitted_routers),
+                                      str(max(prob_diff))]))
 
-        # remove routers with min cw
-        while len(routers) > 0 and routers[0].bandwidth == min_cw:
-            del routers[0]
+        # remove routers with min adv_bw
+        for router in routers:
+            if router.advertised_bw == min_adv_bw:
+                omitted_routers += 1
+                router.bandwidth = 0
+            elif router.advertised_bw > min_adv_bw:
+                min_adv_bw = router.advertised_bw
+                break
 
     return '\n'.join(result_string)
 
