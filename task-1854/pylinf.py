@@ -121,7 +121,7 @@ def run(file_name):
     omitted_routers = 0
     min_adv_bw = routers[0].advertised_bw
 
-    while(omitted_routers<=len(routers)):
+    while(omitted_routers<len(routers)):
         total_bw = 0
 
         # this is the difference btw probability of choosing a relay in pristine
