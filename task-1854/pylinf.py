@@ -107,7 +107,7 @@ def run(file_name):
     if len(routers) <= 0:
         return
 
-    # Find probability of each relay in pristine consensus    
+    # Find probability of each relay in pristine consensus
     total_bw = 0
     for router in routers:
         total_bw += router.bandwidth
@@ -118,7 +118,10 @@ def run(file_name):
     # sort list of routers based on adv_bw
     routers.sort(key=lambda router: router.advertised_bw)
 
-    while(len(routers)>1):
+    omitted_routers = 0
+    min_adv_bw = routers[0].advertised_bw
+
+    while(omitted_routers<=len(routers)):
         total_bw = 0
 
         # this is the difference btw probability of choosing a relay in pristine
@@ -126,24 +129,30 @@ def run(file_name):
         # consensus; prob_diff is the list of such differences for all relays
         prob_diff = []
 
-        min_adv_bw = routers[0].advertised_bw
-
         for router in routers:
             total_bw += router.bandwidth
 
         for router in routers:
-            new_prob = float(router.bandwidth)/float(total_bw)
+            if router.bandwidth > 0:
+                new_prob = float(router.bandwidth)/float(total_bw)
+            else:
+                new_prob = 0
             diff = abs(new_prob - router.prob)
             prob_diff.append(diff)
 
         result_string.append(','.join([valid_after,
                                       str(min_adv_bw),
-                                      str(len(routers)),
+                                      str(len(routers)-omitted_routers),
                                       str(max(prob_diff))]))
 
         # remove routers with min adv_bw
-        while len(routers) > 0 and routers[0].advertised_bw == min_adv_bw:
-            del routers[0]
+        for router in routers:
+            if router.advertised_bw == min_adv_bw:
+                omitted_routers += 1
+                router.bandwidth = 0
+            elif router.advertised_bw > min_adv_bw:
+                min_adv_bw = router.advertised_bw
+                break
 
     return '\n'.join(result_string)
 
