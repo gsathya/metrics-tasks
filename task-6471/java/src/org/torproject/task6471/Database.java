@@ -34,4 +34,25 @@ public interface Database {
    */
   public String lookupCountryCodeFromIpv4AddressAndDate(String address,
       String date);
+
+  /**
+   * Resolve the country code to the corresponding country name.
+   *
+   * @param countryCode Country code to be resolved.
+   * @return Country name.
+   */
+  public String getCountryNameForCountryCode(String countryCode);
+
+  /**
+   * Query the database for the country name assigned to an IPv4 address
+   * and date.  This is a convenience method that first looks up the
+   * country code and then resolves it to the country name.
+   *
+   * @param address IPv4 address in dotted-quad notation.
+   * @param date Assignment date in format yyyymmdd.
+   * @return Assigned country name, or null if no assignment could be
+   *         found.
+   */
+  public String lookupCountryNameFromIpv4AddressAndDate(String address,
+      String date);
 }

@@ -25,6 +25,9 @@ public class DatabaseTest {
         "2.255.255.255", "20220901"));
     assertEquals("us", database.lookupCountryCodeFromIpv4AddressAndDate(
         "3.0.0.0", "19920901"));
+    assertEquals("United States",
+        database.lookupCountryNameFromIpv4AddressAndDate(
+        "3.0.0.0", "19920901"));
     assertEquals("us", database.lookupCountryCodeFromIpv4AddressAndDate(
         "3.0.0.0", "20020901"));
     assertEquals("us", database.lookupCountryCodeFromIpv4AddressAndDate(

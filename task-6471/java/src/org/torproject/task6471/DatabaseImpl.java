@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.SortedSet;
@@ -271,5 +272,32 @@ public class DatabaseImpl implements Database {
       return false;
     }
     return true;
+  }
+
+  /** Mapping from country codes to country names. */
+  private static SortedMap<String, String> countryNames;
+  static {
+    countryNames = new TreeMap<String, String>();
+    List<String[]> countryList = Countries.getInstance().getCountryList();
+    for (String[] country : countryList) {
+      countryNames.put(country[0], country[1]);
+    }
+  }
+
+  /** Resolve country codes to country names. */
+  public String getCountryNameForCountryCode(String countryCode) {
+    if (countryCode == null) {
+      return null;
+    } else {
+      return countryNames.get(countryCode);
+    }
+  }
+
+  /** Lookup IPv4 address and date and return the country name. */
+  public String lookupCountryNameFromIpv4AddressAndDate(
+      String addressString, String dateString) {
+    return getCountryNameForCountryCode(
+        lookupCountryCodeFromIpv4AddressAndDate(addressString,
+        dateString));
   }
 }
