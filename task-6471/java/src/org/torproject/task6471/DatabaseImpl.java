@@ -31,8 +31,7 @@ import java.util.TreeSet;
  * the start IPv4 address in the higher bits and the first database
  * publication date containing that range in the lower bits.  The tree
  * element itself contains the end IPv4 address, last database publication
- * date, last database index number (see explanation further below), and
- * country code.
+ * date, and country code.
  *
  * Lookups for a given address and random date only require iterating
  * backwards over ranges with start address smaller than or equaling the
@@ -40,20 +39,9 @@ import java.util.TreeSet;
  * end address is encountered.
  *
  * As a requirement for lookups to work correctly, address ranges may
- * never overlap for different assignment periods.  Similarly, date
- * assignment ranges for a given address range may not overlap.  These
- * requirements make the import process somewhat more complex and
- * time-consuming, which is a tradeoff for faster lookup performance.
- *
- * The purpose of storing the last database index number is to fix ranges
- * that are contained in two or more databases, but that are missing in a
- * database that was published between the others but imported after them.
- * The database index number defines that the range is only valid for
- * databases imported until a given database, not necessarily for
- * databases importer later on.  A separate repair run is necessary to
- * check whether later imported databases require splitting a range into
- * two or more sub ranges to correctly reflect that the range was not
- * contained in those databases.
+ * never overlap for different assignment periods.  This makes the import
+ * process somewhat more complex and time-consuming, which is a trade-off
+ * for faster lookup performance.
  */
 public class DatabaseImpl implements Database {
 
@@ -66,14 +54,13 @@ public class DatabaseImpl implements Database {
   private static class TreeElement {
     private long endAddress;
     private int lastDbDate;
-    private int lastKnownDbIndex;
     private String countryCode;
-    TreeElement(long endAddress, int lastDbDate, int lastKnownDbIndex,
-        String countryCode) {
+    private boolean modifiedInLastImport;
+    TreeElement(long endAddress, int lastDbDate, String countryCode) {
       this.endAddress = endAddress;
       this.lastDbDate = lastDbDate;
-      this.lastKnownDbIndex = lastKnownDbIndex;
       this.countryCode = countryCode;
+      this.modifiedInLastImport = true;
     }
   }
 
@@ -97,21 +84,22 @@ public class DatabaseImpl implements Database {
   private SortedSet<Integer> databaseDates = new TreeSet<Integer>();
 
   /**
-   * Ordered list of database dates to find out their indexes.
+   * Database file names.
    */
-  private List<Integer> databaseIndexes = new ArrayList<Integer>();
+  private SortedSet<String> databaseFileNames = new TreeSet<String>();
 
   /**
    * Parse one or more stats files.
    */
   public boolean importRegionalRegistryStatsFileOrDirectory(String path) {
     boolean allImportsSuccessful = true;
-    Stack<File> files = new Stack<File>();
-    files.add(new File(path));
-    while (!files.isEmpty()) {
-      File file = files.pop();
+    Stack<File> stackedFiles = new Stack<File>();
+    stackedFiles.add(new File(path));
+    List<File> allFiles = new ArrayList<File>();
+    while (!stackedFiles.isEmpty()) {
+      File file = stackedFiles.pop();
       if (file.isDirectory()) {
-        files.addAll(Arrays.asList(file.listFiles()));
+        stackedFiles.addAll(Arrays.asList(file.listFiles()));
       } else if (file.getName().endsWith(".md5") ||
           file.getName().endsWith(".md5.gz") ||
           file.getName().endsWith(".asc") ||
@@ -124,7 +112,21 @@ public class DatabaseImpl implements Database {
         System.err.println("Parsing compressed files is not supported "
             + "yet: '" + file.getAbsolutePath() + "'.  Skipping.");
         /* TODO Implement parsing compressed files. */
-      } else if (!this.importRegionalRegistryStatsFile(file)) {
+      } else {
+        /* TODO Make sure that we're not importing files for a date if we
+         * have less than all five of them. */
+        allFiles.add(file);
+      }
+    }
+    Collections.sort(allFiles, Collections.reverseOrder());
+    for (File file : allFiles) {
+      String databaseFileName = file.getName();
+      if (this.databaseFileNames.contains(databaseFileName)) {
+        /* We already imported this file while loading combined databases
+         * from disk. */
+        continue;
+      }
+      if (!this.importRegionalRegistryStatsFile(file)) {
         allImportsSuccessful = false;
       }
     }
@@ -139,8 +141,7 @@ public class DatabaseImpl implements Database {
     try {
       BufferedReader br = new BufferedReader(new FileReader(file));
       String line;
-      String databaseDateString =
-          file.getName().substring(file.getName().length() - 8);
+      String databaseFileName = file.getName();
       while ((line = br.readLine()) != null) {
         if (line.startsWith("#") || line.length() == 0) {
           /* Skip comment line. */
@@ -163,11 +164,11 @@ public class DatabaseImpl implements Database {
         String countryCode = parts[1].toLowerCase();
         String startAddressString = parts[3];
         long addresses = Long.parseLong(parts[4]);
-        this.addRange(databaseDateString, countryCode, startAddressString,
+        this.addRange(databaseFileName, countryCode, startAddressString,
             addresses);
       }
       br.close();
-      this.repairIndex();
+      this.repairTree();
     } catch (IOException e) {
       return false;
     }
@@ -180,36 +181,36 @@ public class DatabaseImpl implements Database {
   private int rangeImports = 0, rangeImportsKeyLookups = 0;
 
   /**
-   * Add a single address and date range to the database, which may
-   * require splitting up existing ranges.
+   * Add a single address and date range to the tree, which may require
+   * splitting up existing ranges.
    *
    * This method has default visibility and is not specified in the
-   * interface, because the caller needs to make sure that repairIndex()
+   * interface, because the caller needs to make sure that repairTree()
    * is called prior to any lookupAddress() calls.  No further checks are
-   * performed that the tree is repaired before look up an address.
+   * performed that the tree is repaired before looking up an address.
    */
-  void addRange(String databaseDateString, String countryCode,
+  void addRange(String databaseFileName, String countryCode,
       String startAddressString, long addresses) {
 
     this.rangeImports++;
+    String databaseDateString =
+        databaseFileName.substring(databaseFileName.length() - 8);
     int databaseDate = convertDateStringToNumber(databaseDateString);
     long startAddress = convertAddressStringToNumber(startAddressString);
     long endAddress = startAddress + addresses - 1L;
 
-    /* Add new database date if it's not yet contained. */
+    /* Add new database date and file name if we didn't know them yet,
+     * and note that we need to repair the tree after importing. */
     if (!this.databaseDates.contains(databaseDate)) {
       this.databaseDates.add(databaseDate);
-      this.databaseIndexes.add(databaseDate);
-      if (this.databaseIndexes.size() > 1) {
-        this.needToFixDatabase = true;
-      }
+      this.addedDatabaseDate = databaseDate;
     }
+    this.databaseFileNames.add(databaseFileName);
 
     /* We might have to split existing ranges or the new range before
-     * adding it to the database, and we might have to remove existing
-     * ranges.  We shouldn't mess with the tree directly while iterating
-     * over it, so let's for now only calculate what changes we want to
-     * make. */
+     * adding it to the tree, and we might have to remove existing ranges.
+     * We shouldn't mess with the tree directly while iterating  over it,
+     * so let's for now only calculate what changes we want to make. */
     SortedMap<Long, TreeElement> updateElements =
         this.getUpdatesForAddingRange(databaseDate, countryCode,
             startAddress, endAddress);
@@ -247,9 +248,6 @@ public class DatabaseImpl implements Database {
         this.databaseDates.tailSet(databaseDate + 1).isEmpty() ? -1 :
         this.databaseDates.tailSet(databaseDate + 1).first();
 
-    /* Look up database index number of the range to be added. */
-    int dbIndex = this.databaseIndexes.indexOf(databaseDate);
-
     /* Remember the address boundaries of the next (partial) range to be
      * added. */
     long nextStartAddress = startAddress, nextEndAddress = endAddress;
@@ -258,26 +256,25 @@ public class DatabaseImpl implements Database {
     /* Iterate backwards over the existing ranges, starting at the end
      * address of the range to be added and at the last conceivable
      * database publication date. */
-    for (Map.Entry<Long, TreeElement> e :
-        this.ranges.tailMap(((endAddress + 1L) << 16) - 1L).entrySet()) {
+    for (Map.Entry<Long, TreeElement> e : this.ranges.tailMap(
+        convertAddressAndDateToKey(endAddress + 1L, 0) - 1L).entrySet()) {
       this.rangeImportsKeyLookups++;
 
       /* Extract everything we need to know from the next existing range
        * we're looking at. */
-      long eStartAddress = e.getKey() >> 16;
+      long eStartAddress = convertKeyToAddress(e.getKey());
       long eEndAddress = e.getValue().endAddress;
-      int eFirstDbDate = (int) (e.getKey() & ((1L << 16) - 1L));
+      int eFirstDbDate = convertKeyToDate(e.getKey());
       int eLastDbDate = e.getValue().lastDbDate;
-      int eLastKnownDbIndex = e.getValue().lastKnownDbIndex;
       String eCountryCode = e.getValue().countryCode;
 
       /* If the next (partial) range starts after the current element
        * ends, add the new range. */
       if (nextStartAddress > eEndAddress &&
           nextEndAddress >= startAddress) {
-        updateElements.put((nextStartAddress << 16) + nextFirstDbDate,
-            new TreeElement(nextEndAddress, nextLastDbDate, dbIndex,
-            countryCode));
+        updateElements.put(convertAddressAndDateToKey(nextStartAddress,
+            nextFirstDbDate), new TreeElement(nextEndAddress,
+            nextLastDbDate, countryCode));
         nextEndAddress = nextStartAddress - 1L;
         nextStartAddress = startAddress;
         nextFirstDbDate = databaseDate;
@@ -288,8 +285,8 @@ public class DatabaseImpl implements Database {
        * ends, add the new range. */
       if (nextEndAddress > eEndAddress &&
           nextEndAddress >= startAddress) {
-        updateElements.put(((eEndAddress + 1L) << 16) + databaseDate,
-            new TreeElement(nextEndAddress, databaseDate, dbIndex,
+        updateElements.put(convertAddressAndDateToKey(eEndAddress + 1L,
+            databaseDate), new TreeElement(nextEndAddress, databaseDate,
             countryCode));
         nextEndAddress = eEndAddress;
         nextStartAddress = startAddress;
@@ -309,11 +306,11 @@ public class DatabaseImpl implements Database {
        * case cut off the overlapping part and store it as a new
        * element.*/
       if (eStartAddress <= endAddress && eEndAddress > endAddress) {
-        updateElements.put(((endAddress + 1L) << 16) + eFirstDbDate,
-            new TreeElement(eEndAddress, eLastDbDate, eLastKnownDbIndex,
+        updateElements.put(convertAddressAndDateToKey(endAddress + 1L,
+            eFirstDbDate), new TreeElement(eEndAddress, eLastDbDate,
             eCountryCode));
-        updateElements.put((eStartAddress << 16) + eFirstDbDate,
-            new TreeElement(endAddress, eLastDbDate, eLastKnownDbIndex,
+        updateElements.put(convertAddressAndDateToKey(eStartAddress,
+            eFirstDbDate), new TreeElement(endAddress, eLastDbDate,
             eCountryCode));
         eEndAddress = endAddress;
       }
@@ -322,11 +319,11 @@ public class DatabaseImpl implements Database {
        * newly added one.  If so, cut off the overlapping part and store
        * it as new element. */
       if (eStartAddress < startAddress && eEndAddress >= startAddress) {
-        updateElements.put((eStartAddress << 16) + eFirstDbDate,
-            new TreeElement(startAddress - 1L, eLastDbDate,
-            eLastKnownDbIndex, eCountryCode));
-        updateElements.put((startAddress << 16) + eFirstDbDate,
-            new TreeElement(eEndAddress, eLastDbDate, eLastKnownDbIndex,
+        updateElements.put(convertAddressAndDateToKey(eStartAddress,
+            eFirstDbDate), new TreeElement(startAddress - 1L, eLastDbDate,
+            eCountryCode));
+        updateElements.put(convertAddressAndDateToKey(startAddress,
+            eFirstDbDate), new TreeElement(eEndAddress, eLastDbDate,
             eCountryCode));
         eStartAddress = startAddress;
       }
@@ -336,11 +333,17 @@ public class DatabaseImpl implements Database {
       nextStartAddress = eStartAddress;
       nextEndAddress = eEndAddress;
 
-      /* If the range is already contained, maybe even with different
-       * country code, ignore it. */
+      /* If the range is already contained and has the same country code,
+       * mark it as updated.  If it's contained with a different country
+       * code, ignore the update. */
       if (eFirstDbDate <= databaseDate && eLastDbDate >= databaseDate) {
-        updateElements.clear();
-        return updateElements;
+        if (eCountryCode.equals(countryCode)) {
+          nextFirstDbDate = eFirstDbDate;
+          nextLastDbDate = eLastDbDate;
+        } else {
+          updateElements.clear();
+          return updateElements;
+        }
       }
 
       /* See if we can merge the new range with the previous or next
@@ -349,10 +352,12 @@ public class DatabaseImpl implements Database {
       if (eCountryCode.equals(countryCode)) {
         if (eLastDbDate == previousDatabaseDate) {
           nextFirstDbDate = eFirstDbDate;
-          updateElements.put((eStartAddress << 16) + eFirstDbDate, null);
+          updateElements.put(convertAddressAndDateToKey(eStartAddress,
+              eFirstDbDate), null);
         } else if (eFirstDbDate == nextDatabaseDate) {
           nextLastDbDate = eLastDbDate;
-          updateElements.put((eStartAddress << 16) + eFirstDbDate, null);
+          updateElements.put(convertAddressAndDateToKey(eStartAddress,
+              eFirstDbDate), null);
         }
       }
     }
@@ -360,9 +365,9 @@ public class DatabaseImpl implements Database {
     /* If there's still some part (or the whole?) address range left to
      * add, add it now. */
     while (nextEndAddress >= startAddress) {
-      updateElements.put((nextStartAddress << 16) + nextFirstDbDate,
-          new TreeElement(nextEndAddress, nextLastDbDate, dbIndex,
-          countryCode));
+      updateElements.put(convertAddressAndDateToKey(nextStartAddress,
+          nextFirstDbDate), new TreeElement(nextEndAddress,
+          nextLastDbDate, countryCode));
       nextEndAddress = nextStartAddress - 1L;
       nextStartAddress = startAddress;
       nextFirstDbDate = databaseDate;
@@ -373,72 +378,75 @@ public class DatabaseImpl implements Database {
     return updateElements;
   }
 
-  /* Do we have to repair the tree? */
-  private boolean needToFixDatabase = false;
+  /**
+   * Internal counter for millis spent on repairing the tree.
+   */
+  private long treeRepairMillis = 0L;
+
+  /* Newly added database date, or -1 if a database from an already known
+   * date was imported. */
+  private int addedDatabaseDate = -1;
 
   /**
    * Repair tree by making sure that any range from a given database date
    * to another is still valid when considering any other database that
    * was imported later.
+   *
+   * It's okay to split a date range when importing a database from
+   * another registry that doesn't contain the given address range.  We'll
+   * merge the two date ranges when parsing that registry's file.
+   *
+   * This method has default visibility and is not specified in the
+   * interface, because the caller needs to make sure that repairTree()
+   * is called prior to any lookupAddress() calls.  No further checks are
+   * performed that the tree is repaired before look up an address.
    */
-  void repairIndex() {
-    if (!needToFixDatabase) {
+  void repairTree() {
+    if (this.addedDatabaseDate < 0) {
       return;
     }
-    int maxDatabaseIndex = databaseIndexes.size() - 1;
-    if (maxDatabaseIndex < 1) {
-      return;
-    }
+    long startedRepairingTree = System.currentTimeMillis();
     SortedMap<Long, TreeElement> updateElements =
         new TreeMap<Long, TreeElement>();
     for (Map.Entry<Long, TreeElement> e : this.ranges.entrySet()) {
-      if (e.getValue().lastKnownDbIndex < maxDatabaseIndex) {
-        int eFirstDbDate = (int) (e.getKey() & ((1L << 16) - 1L));
+      if (e.getValue().modifiedInLastImport) {
+        e.getValue().modifiedInLastImport = false;
+      } else {
+        int eFirstDbDate = convertKeyToDate(e.getKey());
         int eLastDbDate = e.getValue().lastDbDate;
-        List<Integer> splitAtDates = new ArrayList<Integer>();
-        for (int dbIndex = e.getValue().lastKnownDbIndex + 1;
-            dbIndex <= maxDatabaseIndex; dbIndex++) {
-          int dbDate = databaseIndexes.get(dbIndex);
-          if (eFirstDbDate < dbDate && eLastDbDate > dbDate) {
-            splitAtDates.add(dbDate);
+        long eStartAddress = convertKeyToAddress(e.getKey());
+        long eEndAddress = e.getValue().endAddress;
+        String eCountryCode = e.getValue().countryCode;
+        int start = eFirstDbDate, end = eFirstDbDate;
+        for (int cur : this.databaseDates.tailSet(eFirstDbDate)) {
+          if (cur > eLastDbDate) {
+            break;
+          }
+          if (cur == addedDatabaseDate) {
+            if (start >= 0 && end >= 0) {
+              updateElements.put(convertAddressAndDateToKey(eStartAddress,
+                  start), new TreeElement(eEndAddress, end,
+                  eCountryCode));
+              start = end = -1;
+            }
+          } else if (start < 0) {
+            start = end = cur;
+          } else {
+            end = cur;
           }
         }
-        if (splitAtDates.isEmpty()) {
-          e.getValue().lastKnownDbIndex = maxDatabaseIndex;
-        } else {
-          long eStartAddress = e.getKey() >> 16;
-          long eEndAddress = e.getValue().endAddress;
-          String eCountryCode = e.getValue().countryCode;
-          int start = eFirstDbDate, end = eFirstDbDate;
-          for (int cur : this.databaseDates.tailSet(eFirstDbDate)) {
-            if (cur > eLastDbDate) {
-              break;
-            }
-            if (splitAtDates.contains(cur)) {
-              if (start >= 0 && end >= 0) {
-                updateElements.put((eStartAddress << 16) + start,
-                    new TreeElement(eEndAddress, end,
-                    maxDatabaseIndex, eCountryCode));
-                start = end = -1;
-              }
-            } else if (start < 0) {
-              start = end = cur;
-            } else {
-              end = cur;
-            }
-          }
-          if (start >= 0 && end >= 0) {
-            updateElements.put((eStartAddress << 16) + start,
-                new TreeElement(eEndAddress, end,
-                maxDatabaseIndex, eCountryCode));
-          }
+        if (start >= 0 && end >= 0) {
+          updateElements.put(convertAddressAndDateToKey(eStartAddress,
+              start), new TreeElement(eEndAddress, end, eCountryCode));
         }
       }
     }
     for (Map.Entry<Long, TreeElement> e : updateElements.entrySet()) {
       this.ranges.put(e.getKey(), e.getValue());
     }
-    this.needToFixDatabase = false;
+    this.addedDatabaseDate = -1;
+    this.treeRepairMillis += (System.currentTimeMillis()
+        - startedRepairingTree);
   }
 
   /**
@@ -467,8 +475,8 @@ public class DatabaseImpl implements Database {
 
     /* Iterate backwards over the existing ranges, starting at the last
      * possible date of the address to be found. */
-    for (Map.Entry<Long, TreeElement> e :
-      this.ranges.tailMap(((address + 1L) << 16) - 1L).entrySet()) {
+    for (Map.Entry<Long, TreeElement> e : this.ranges.tailMap(
+        convertAddressAndDateToKey(address + 1L, 0) - 1L).entrySet()) {
       this.addressLookupsKeyLookups++;
 
       /* If either the end address or end date of the range we're looking
@@ -481,7 +489,7 @@ public class DatabaseImpl implements Database {
 
       /* If the range starts at a later date, skip it and look at the next
        * one. */
-      long startDate = e.getKey() & ((1L << 16) - 1L);
+      long startDate = convertKeyToDate(e.getKey());
       if (startDate > databaseDate) {
         continue;
       }
@@ -541,28 +549,56 @@ public class DatabaseImpl implements Database {
     return dateFormat.format(((long) date) * 86400000);
   }
 
+  /* Helper: convert the address part of a key to the long integer
+   * number format. */
+  static long convertKeyToAddress(long key) {
+    return key >> 16;
+  }
+
+  /* Helper: convert the date part of a key to an integer containing days
+   * passed since 1970-01-1. */
+  static int convertKeyToDate(long key) {
+    return (int) (key & ((1L << 16) - 1L));
+  }
+
+  /* Helper: convert the address part of a key to the dotted-quad string
+   * format. */
+  static String convertKeyToAddressString(long key) {
+    return convertAddressNumberToString(convertKeyToAddress(key));
+  }
+
+  /* Helper: convert date part of a key to string in format yyyymmdd */
+  static String convertKeyToDateString(long key) {
+    return convertDateNumberToString(convertKeyToDate(key));
+  }
+
+  /* Helper: convert an address in long integer number format and a date
+   * in integer format to a key. */
+  static long convertAddressAndDateToKey(long address, int date) {
+    return (address << 16) + date;
+  }
+
   /* Return a nicely formatted string summarizing database contents and
    * usage statistics. */
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append(String.format("Database contains %d databases and %d "
-        + "combined address ranges.\n"
+    sb.append(String.format("Tree contains %d databases and %d combined "
+        + "address ranges.\n"
         + "Performed %d address range imports requiring %d lookups.\n"
         + "Performed %d address lookups requiring %d lookups.\n"
+        + "Spent %d millis on repairing tree.\n"
         + "First 10 entries, in reverse order, are:",
-        this.databaseDates.size(), this.ranges.size(), rangeImports,
-        rangeImportsKeyLookups, addressLookups,
-        addressLookupsKeyLookups));
+        this.databaseDates.size(), this.ranges.size(), this.rangeImports,
+        this.rangeImportsKeyLookups, this.addressLookups,
+        this.addressLookupsKeyLookups, this.treeRepairMillis));
     int entries = 10;
     for (Map.Entry<Long, TreeElement> e : this.ranges.entrySet()) {
-      sb.append(String.format("%n  %s %s %s %s %s %d",
-          convertAddressNumberToString(e.getKey() >> 16),
+      sb.append(String.format("%n  %s %s %s %s %s",
+          convertKeyToAddressString(e.getKey()),
           convertAddressNumberToString(e.getValue().endAddress),
           e.getValue().countryCode,
-          convertDateNumberToString(
-              (int) (e.getKey() & ((1L << 16) - 1L))),
-          convertDateNumberToString(e.getValue().lastDbDate),
-          e.getValue().lastKnownDbIndex));
+          convertKeyToDateString(e.getKey()),
+          convertDateNumberToString(e.getValue().lastDbDate)));
       if (--entries <= 0) {
         break;
       }
@@ -582,11 +618,11 @@ public class DatabaseImpl implements Database {
         file.getParentFile().mkdirs();
       }
 
-      /* Start with writing all contained database dates to the file
+      /* Start with writing all contained database file names to the file
        * header. */
       BufferedWriter bw = new BufferedWriter(new FileWriter(file));
-      for (int dbDate : this.databaseDates) {
-        bw.write("!" + convertDateNumberToString(dbDate) + "\n");
+      for (String databaseFileName : this.databaseFileNames) {
+        bw.write("!" + databaseFileName + "\n");
       }
 
       /* Next write all database ranges in the same order as they are
@@ -595,11 +631,10 @@ public class DatabaseImpl implements Database {
        * the tree is already in repaired state. */
       for (Map.Entry<Long, TreeElement> e : this.ranges.entrySet()) {
         bw.write(String.format("%s,%s,%s,%s,%s%n",
-            convertAddressNumberToString(e.getKey() >> 16),
+            convertKeyToAddressString(e.getKey()),
             convertAddressNumberToString(e.getValue().endAddress),
             e.getValue().countryCode,
-            convertDateNumberToString(
-                (int) (e.getKey() & ((1L << 16) - 1L))),
+            convertKeyToDateString(e.getKey()),
             convertDateNumberToString(e.getValue().lastDbDate)));
       }
       bw.close();
@@ -618,15 +653,16 @@ public class DatabaseImpl implements Database {
       File file = new File(path);
       BufferedReader br = new BufferedReader(new FileReader(file));
       String line;
-      int maxDbIndex = -1;
       while ((line = br.readLine()) != null) {
         if (line.startsWith("!")) {
 
           /* First read file header containing database dates. */
-          int dbDate = convertDateStringToNumber(line.substring(1));
+          String databaseFileName = line.substring(1);
+          String databaseDateString =
+              databaseFileName.substring(databaseFileName.length() - 8);
+          int dbDate = convertDateStringToNumber(databaseDateString);
+          this.databaseFileNames.add(databaseFileName);
           this.databaseDates.add(dbDate);
-          this.databaseIndexes.add(dbDate);
-          maxDbIndex = this.databaseIndexes.size() - 1;
         } else {
 
           /* Next read all ranges.  Set last known database index for each
@@ -638,8 +674,8 @@ public class DatabaseImpl implements Database {
           String countryCode = parts[2];
           int firstDbDate = convertDateStringToNumber(parts[3]);
           int lastDbDate = convertDateStringToNumber(parts[4]);
-          this.ranges.put((startAddress << 16) + firstDbDate,
-              new TreeElement(endAddress, lastDbDate, maxDbIndex,
+          this.ranges.put(convertAddressAndDateToKey(startAddress,
+              firstDbDate), new TreeElement(endAddress, lastDbDate,
               countryCode));
         }
       }
@@ -647,6 +683,7 @@ public class DatabaseImpl implements Database {
     } catch (IOException e) {
       return false;
     }
+    this.repairTree();
     return true;
   }
 }

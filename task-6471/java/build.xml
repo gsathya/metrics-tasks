@@ -38,5 +38,12 @@
       </batchtest>
     </junit>
   </target>
+  <target name="perf" depends="compile">
+    <java fork="true"
+          maxmemory="2048m"
+          classname="org.torproject.task6471.DatabasePerformanceExample">
+      <classpath refid="classpath"/>
+    </java>
+  </target>
 </project>
 

@@ -13,7 +13,7 @@ public class DatabaseTest {
   public void testSingleIpRangeSingleDatebase() {
     DatabaseImpl database = new DatabaseImpl();
     database.addRange("20120901", "us", "3.0.0.0", 16777216);
-    database.repairIndex();
+    database.repairTree();
     assertEquals(1, ((DatabaseImpl) database).getNumberOfElements());
     assertEquals(null, database.lookupAddress("2.255.255.255",
         "19920901"));
@@ -50,7 +50,7 @@ public class DatabaseTest {
     DatabaseImpl database = new DatabaseImpl();
     database.addRange("20120901", "us", "3.0.0.0", 16777216);
     database.addRange("20120901", "ca", "4.0.0.0", 16777216);
-    database.repairIndex();
+    database.repairTree();
     assertEquals(2, ((DatabaseImpl) database).getNumberOfElements());
     assertEquals(null, database.lookupAddress("2.255.255.255",
         "20120901"));
@@ -68,7 +68,7 @@ public class DatabaseTest {
     DatabaseImpl database = new DatabaseImpl();
     database.addRange("20120901", "us", "3.0.0.0", 16777216);
     database.addRange("20120901", "ca", "6.0.0.0", 16777216);
-    database.repairIndex();
+    database.repairTree();
     assertEquals(2, ((DatabaseImpl) database).getNumberOfElements());
     assertEquals(null, database.lookupAddress("2.255.255.255", "20120901"));
     assertEquals("us", database.lookupAddress("3.127.0.0", "20120901"));
@@ -82,7 +82,7 @@ public class DatabaseTest {
     DatabaseImpl database = new DatabaseImpl();
     database.addRange("20120901", "us", "3.0.0.0", 16777216);
     database.addRange("20120901", "us", "3.0.0.0", 16777216);
-    database.repairIndex();
+    database.repairTree();
     assertEquals(1, ((DatabaseImpl) database).getNumberOfElements());
     assertEquals(null, database.lookupAddress("2.255.255.255", "20120901"));
     assertEquals("us", database.lookupAddress("3.127.0.0", "20120901"));
@@ -94,7 +94,7 @@ public class DatabaseTest {
     DatabaseImpl database = new DatabaseImpl();
     database.addRange("20120901", "us", "3.0.0.0", 16777216);
     database.addRange("20120901", "ca", "3.0.0.0", 16777216);
-    database.repairIndex();
+    database.repairTree();
     assertEquals(1, ((DatabaseImpl) database).getNumberOfElements());
     assertEquals("us", database.lookupAddress("3.127.0.0", "20120901"));
   }
@@ -103,8 +103,9 @@ public class DatabaseTest {
   public void testLeaveIpChangeUnchanged() {
     DatabaseImpl database = new DatabaseImpl();
     database.addRange("20120901", "us", "3.0.0.0", 16777216);
+    database.repairTree();
     database.addRange("20121001", "us", "3.0.0.0", 16777216);
-    database.repairIndex();
+    database.repairTree();
     assertEquals(1, ((DatabaseImpl) database).getNumberOfElements());
     assertEquals("us", database.lookupAddress("3.127.0.0", "20120801"));
     assertEquals("us", database.lookupAddress("3.127.0.0", "20120901"));
@@ -116,8 +117,9 @@ public class DatabaseTest {
   public void testLeaveIpChangeUnchangedReverseOrder() {
     DatabaseImpl database = new DatabaseImpl();
     database.addRange("20121001", "us", "3.0.0.0", 16777216);
+    database.repairTree();
     database.addRange("20120901", "us", "3.0.0.0", 16777216);
-    database.repairIndex();
+    database.repairTree();
     assertEquals(1, ((DatabaseImpl) database).getNumberOfElements());
     assertEquals("us", database.lookupAddress("3.127.0.0", "20120801"));
     assertEquals("us", database.lookupAddress("3.127.0.0", "20120901"));
@@ -129,9 +131,11 @@ public class DatabaseTest {
   public void testMissingIpRange() {
     DatabaseImpl database = new DatabaseImpl();
     database.addRange("20120901", "us", "3.0.0.0", 16777216);
+    database.repairTree();
     database.addRange("20121101", "us", "3.0.0.0", 16777216);
+    database.repairTree();
     database.addRange("20121001", "us", "6.0.0.0", 16777216);
-    database.repairIndex();
+    database.repairTree();
     assertEquals(3, ((DatabaseImpl) database).getNumberOfElements());
     assertEquals("us", database.lookupAddress("3.127.0.0", "20120801"));
     assertEquals("us", database.lookupAddress("3.127.0.0", "20120901"));
