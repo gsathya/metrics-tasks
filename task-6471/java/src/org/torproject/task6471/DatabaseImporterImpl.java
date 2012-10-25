@@ -123,6 +123,11 @@ public class DatabaseImporterImpl extends DatabaseImpl
   void addRange(String databaseFileName, String countryCode,
       String startAddressString, long addresses) {
 
+    if (countryCode.length() != 2) {
+      /* Don't import illegal range. */
+      return;
+    }
+
     this.rangeImports++;
     String databaseDateString =
         databaseFileName.substring(databaseFileName.length() - 8);
