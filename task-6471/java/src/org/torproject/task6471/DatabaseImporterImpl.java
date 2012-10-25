@@ -87,8 +87,11 @@ public class DatabaseImporterImpl extends DatabaseImpl
         }
         String type = parts[2];
         if (type.equals("asn")) {
+          /* TODO Add support for ASNs, but probably not using registry
+           * stats files. */
           continue;
         } else if (type.equals("ipv6")) {
+          /* TODO Add support for IPv6 addresses. */
           continue;
         }
         String countryCode = parts[1].toLowerCase();
