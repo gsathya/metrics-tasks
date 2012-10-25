@@ -55,7 +55,7 @@ public class DatabasePerformanceExample {
       String dbMonth = file.getName().substring(
           file.getName().length() - 8);
       dbMonth = dbMonth.substring(0, 6);
-      Database temp = new DatabaseImpl();
+      DatabaseImporter temp = new DatabaseImporterImpl();
       temp.importRegionalRegistryStatsFileOrDirectory(
           file.getAbsolutePath());
       for (long test : tests) {
@@ -67,8 +67,9 @@ public class DatabasePerformanceExample {
               convertAddressNumberToString(test >> 16);
           String testDateString = DatabaseImpl.convertDateNumberToString(
               testDate);
-          String countryCode = temp.lookupAddress(testAddressString,
-              testDateString);
+          String countryCode =
+              temp.lookupCountryCodeFromIpv4AddressAndDate(
+              testAddressString, testDateString);
           if (countryCode != null) {
             results.put(test, countryCode);
           }
@@ -80,8 +81,9 @@ public class DatabasePerformanceExample {
 
     System.out.print("Importing files... ");
     startMillis = endMillis;
-    Database database = new DatabaseImpl();
-    database.importRegionalRegistryStatsFileOrDirectory("../data");
+    DatabaseImporter combinedDatabase = new DatabaseImporterImpl();
+    combinedDatabase.importRegionalRegistryStatsFileOrDirectory(
+        "../data");
     endMillis = System.currentTimeMillis();
     System.out.println((endMillis - startMillis) + " millis.");
 
@@ -94,7 +96,9 @@ public class DatabasePerformanceExample {
       String testDate = DatabaseImpl.convertDateNumberToString(
           (int) (test & ((1 << 16) - 1)));
       String expected = results.get(test);
-      String result = database.lookupAddress(testAddress, testDate);
+      String result =
+          combinedDatabase.lookupCountryCodeFromIpv4AddressAndDate(
+          testAddress, testDate);
       if ((expected == null && result != null) ||
           (expected != null && !expected.equals(result))) {
         //System.out.println("Expected " + expected + " for "
@@ -106,18 +110,18 @@ public class DatabasePerformanceExample {
     System.out.println((endMillis - startMillis) + " millis, " + failures
         + " out of " + tests.size() + " tests failed.");
 
-    System.out.println(database);
+    System.out.println(combinedDatabase);
 
     System.out.print("Saving combined databases to disk... ");
     startMillis = endMillis;
-    database.saveCombinedDatabases("geoip-2007-10-2012-09.csv");
+    combinedDatabase.saveCombinedDatabases("geoip-2007-10-2012-09.csv");
     endMillis = System.currentTimeMillis();
     System.out.println((endMillis - startMillis) + " millis.");
     startMillis = endMillis;
 
     System.out.print("Loading combined databases from disk... ");
     startMillis = endMillis;
-    database = new DatabaseImpl();
+    Database database = new DatabaseImpl();
     database.loadCombinedDatabases("geoip-2007-10-2012-09.csv");
     endMillis = System.currentTimeMillis();
     System.out.println((endMillis - startMillis) + " millis.");
@@ -131,7 +135,8 @@ public class DatabasePerformanceExample {
       String testDate = DatabaseImpl.convertDateNumberToString(
           (int) (test & ((1 << 16) - 1)));
       String expected = results.get(test);
-      String result = database.lookupAddress(testAddress, testDate);
+      String result = database.lookupCountryCodeFromIpv4AddressAndDate(
+          testAddress, testDate);
       if ((expected == null && result != null) ||
           (expected != null && !expected.equals(result))) {
         //System.out.println("Expected " + expected + " for "
