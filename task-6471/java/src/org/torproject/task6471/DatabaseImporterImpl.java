@@ -6,13 +6,18 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.Stack;
+import java.util.TimeZone;
 import java.util.TreeMap;
 
 public class DatabaseImporterImpl extends DatabaseImpl
@@ -74,7 +79,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
       String databaseFileName = file.getName();
       while ((line = br.readLine()) != null) {
         if (line.startsWith("#") || line.length() == 0) {
-          /* Skip comment line. */
+          /* Skip comment or empty line. */
           continue;
         }
         String[] parts = line.split("\\|");
@@ -101,8 +106,8 @@ public class DatabaseImporterImpl extends DatabaseImpl
         }
         String startAddressString = parts[3];
         long addresses = Long.parseLong(parts[4]);
-        this.addRange(databaseFileName, code, startAddressString,
-            addresses);
+        this.addRegionalRegistryStatsFileRange(databaseFileName, code,
+            startAddressString, addresses);
       }
       br.close();
       this.repairTree();
@@ -112,6 +117,174 @@ public class DatabaseImporterImpl extends DatabaseImpl
     return true;
   }
 
+  void addRegionalRegistryStatsFileRange(String databaseFileName,
+      String code, String startAddressString, long addresses) {
+    String databaseDateString =
+        databaseFileName.substring(databaseFileName.length() - 8);
+    int databaseDate = convertDateStringToNumber(databaseDateString);
+    long startAddress = convertAddressStringToNumber(startAddressString);
+    long endAddress = startAddress + addresses - 1L;
+    this.addRange(databaseFileName, databaseDate, startAddress,
+        endAddress, code);
+  }
+
+  public boolean importGeoLiteCityFileOrDirectory(String path) {
+    boolean allImportsSuccessful = true;
+    Stack<File> stackedFiles = new Stack<File>();
+    stackedFiles.add(new File(path));
+    SortedMap<File, Set<File>> filesByDirectory =
+        new TreeMap<File, Set<File>>();
+    while (!stackedFiles.isEmpty()) {
+      File file = stackedFiles.pop();
+      if (file.isDirectory()) {
+        stackedFiles.addAll(Arrays.asList(file.listFiles()));
+      } else if (!file.getName().endsWith(".csv")) {
+        System.err.println("Parsing other files than .csv is not "
+            + "supported: '" + file.getAbsolutePath() + "'.  Skipping.");
+      } else {
+        if (!filesByDirectory.containsKey(file.getParentFile())) {
+          filesByDirectory.put(file.getParentFile(), new HashSet<File>());
+        }
+        filesByDirectory.get(file.getParentFile()).add(file);
+      }
+    }
+    for (Set<File> files : filesByDirectory.values()) {
+      File blocksFile = null, locationFile = null;
+      for (File file : files) {
+        if (file.getName().equals("GeoLiteCity-Blocks.csv")) {
+          blocksFile = file;
+        } else if (file.getName().equals("GeoLiteCity-Location.csv")) {
+          locationFile = file;
+        }
+      }
+      if (blocksFile != null && locationFile != null) {
+        if (!this.importGeoLiteCityBlocksAndLocationFiles(blocksFile,
+            locationFile)) {
+          allImportsSuccessful = false;
+        }
+        files.remove(blocksFile);
+        files.remove(locationFile);
+        if (!files.isEmpty()) {
+          System.err.println("Did not recognize the following files, or "
+              + "did not find the blocks/location equivalent:");
+          for (File file : files) {
+            System.err.println(file.getAbsolutePath());
+          }
+        }
+      }
+    }
+    return allImportsSuccessful;
+  }
+
+  boolean importGeoLiteCityBlocksAndLocationFiles(File blocksFile,
+      File locationFile) {
+    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+    dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+    long lastModifiedMillis = blocksFile.lastModified();
+    String databaseFileName = blocksFile.getName() + " "
+        + locationFile.getName() + " "
+        + dateFormat.format(lastModifiedMillis);
+    int databaseDate = (int) (lastModifiedMillis / 86400000);
+    try {
+      /* Parse location file first and remember country codes for given
+       * locations. */
+      Map<Integer, String> locations = new HashMap<Integer, String>();
+      BufferedReader br = new BufferedReader(new FileReader(
+          locationFile));
+      String line;
+      while ((line = br.readLine()) != null) {
+        if (line.startsWith("Copyright") || line.startsWith("locId")) {
+          /* Skip copyright notice and column headers. */
+          continue;
+        }
+        String[] parts = line.split(",");
+        int location = Integer.parseInt(parts[0]);
+        String code = parts[1].replaceAll("\"", "").toLowerCase();
+        locations.put(location, code);
+      }
+      br.close();
+      /* Parse blocks file and add ranges to the database. */
+      br = new BufferedReader(new FileReader(blocksFile));
+      while ((line = br.readLine()) != null) {
+        if (!line.startsWith("\"")) {
+          /* Skip copyright notice and column headers. */
+          continue;
+        }
+        String[] parts = line.replaceAll("\"", "").split(",");
+        long startAddress = Long.parseLong(parts[0]),
+            endAddress = Long.parseLong(parts[1]);
+        int location = Integer.parseInt(parts[2]);
+        if (!locations.containsKey(location)) {
+          System.err.println(blocksFile.getAbsolutePath() + " contains "
+              + "line '" + line + "' that doesn't match any line in "
+              + locationFile.getAbsolutePath() + ".  Aborting.");
+          break;
+        }
+        String code = locations.get(location);
+        this.addRange(databaseFileName, databaseDate, startAddress,
+            endAddress, code);
+      }
+      br.close();
+    } catch (IOException e) {
+      return false;
+    }
+    return true;
+  }
+
+  public boolean importGeoIPASNum2FileOrDirectory(String path) {
+    boolean allImportsSuccessful = true;
+    Stack<File> stackedFiles = new Stack<File>();
+    stackedFiles.add(new File(path));
+    List<File> allFiles = new ArrayList<File>();
+    while (!stackedFiles.isEmpty()) {
+      File file = stackedFiles.pop();
+      if (file.isDirectory()) {
+        stackedFiles.addAll(Arrays.asList(file.listFiles()));
+      } else if (!file.getName().endsWith(".csv")) {
+        System.err.println("Parsing other files than .csv is not "
+            + "supported: '" + file.getAbsolutePath() + "'.  Skipping.");
+      } else {
+        allFiles.add(file);
+      }
+    }
+    Collections.sort(allFiles, Collections.reverseOrder());
+    for (File file : allFiles) {
+      if (!this.importGeoIPASNum2File(file)) {
+        allImportsSuccessful = false;
+      }
+    }
+    return allImportsSuccessful;
+  }
+
+  private boolean importGeoIPASNum2File(File file) {
+    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+    dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+    long lastModifiedMillis = file.lastModified();
+    String databaseFileName = file.getName() + " "
+        + dateFormat.format(lastModifiedMillis);
+    int databaseDate = (int) (lastModifiedMillis / 86400000);
+    try {
+      BufferedReader br = new BufferedReader(new FileReader(file));
+      String line;
+      while ((line = br.readLine()) != null) {
+        String[] parts = line.split(",");
+        long startAddress = Long.parseLong(parts[0]),
+            endAddress = Long.parseLong(parts[1]);
+        String code = parts[2].split(" ")[0].replaceAll("\"", "");
+        if (!code.startsWith("AS")) {
+          /* Don't import illegal range. */
+          continue;
+        }
+        this.addRange(databaseFileName, databaseDate, startAddress,
+            endAddress, code);
+      }
+      br.close();
+      this.repairTree();
+    } catch (IOException e) {
+      return false;
+    }
+    return true;
+  }
 
   /**
    * Internal counters for import statistics.
@@ -127,15 +300,9 @@ public class DatabaseImporterImpl extends DatabaseImpl
    * is called prior to any lookupAddress() calls.  No further checks are
    * performed that the tree is repaired before looking up an address.
    */
-  void addRange(String databaseFileName, String code,
-      String startAddressString, long addresses) {
-
+  void addRange(String databaseFileName, int databaseDate,
+      long startAddress, long endAddress, String code) {
     this.rangeImports++;
-    String databaseDateString =
-        databaseFileName.substring(databaseFileName.length() - 8);
-    int databaseDate = convertDateStringToNumber(databaseDateString);
-    long startAddress = convertAddressStringToNumber(startAddressString);
-    long endAddress = startAddress + addresses - 1L;
 
     /* Add new database date and file name if we didn't know them yet,
      * and note that we need to repair the tree after importing. */
@@ -337,6 +504,9 @@ public class DatabaseImporterImpl extends DatabaseImpl
    * interface, because the caller needs to make sure that repairTree()
    * is called prior to any lookupAddress() calls.  No further checks are
    * performed that the tree is repaired before look up an address.
+   *
+   * TODO While repairing the tree, we might also optimize it by merging
+   * adjacent address ranges with the same database date ranges.
    */
   void repairTree() {
     if (this.addedDatabaseDate < 0) {
@@ -429,7 +599,6 @@ public class DatabaseImporterImpl extends DatabaseImpl
     }
     return true;
   }
-  
 
   /* Return a nicely formatted string summarizing database contents and
    * usage statistics. */

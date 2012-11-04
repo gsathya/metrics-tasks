@@ -45,5 +45,12 @@
       <classpath refid="classpath"/>
     </java>
   </target>
+  <target name="convert" depends="compile">
+    <java fork="true"
+          maxmemory="2048m"
+          classname="org.torproject.task6471.ConvertExample">
+      <classpath refid="classpath"/>
+    </java>
+  </target>
 </project>
 

@@ -12,7 +12,8 @@ public class DatabaseTest {
   @Test()
   public void testSingleIpRangeSingleDatebase() {
     DatabaseImporterImpl database = new DatabaseImporterImpl();
-    database.addRange("20120901", "us", "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20120901", "us",
+        "3.0.0.0", 16777216);
     database.repairTree();
     assertEquals(1, database.getNumberOfElements());
     assertEquals(null, database.lookupIpv4AddressAndDate(
@@ -60,8 +61,10 @@ public class DatabaseTest {
   @Test()
   public void testTwoAdjacentIpRangesSingleDatabase() {
     DatabaseImporterImpl database = new DatabaseImporterImpl();
-    database.addRange("20120901", "us", "3.0.0.0", 16777216);
-    database.addRange("20120901", "ca", "4.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20120901", "us",
+        "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20120901", "ca",
+        "4.0.0.0", 16777216);
     database.repairTree();
     assertEquals(2, database.getNumberOfElements());
     assertEquals(null, database.lookupIpv4AddressAndDate(
@@ -85,8 +88,10 @@ public class DatabaseTest {
   @Test()
   public void testTwoNonAdjacentIpDateRangesSingleDatabase() {
     DatabaseImporterImpl database = new DatabaseImporterImpl();
-    database.addRange("20120901", "us", "3.0.0.0", 16777216);
-    database.addRange("20120901", "ca", "6.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20120901", "us",
+        "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20120901", "ca",
+        "6.0.0.0", 16777216);
     database.repairTree();
     assertEquals(2, database.getNumberOfElements());
     assertEquals(null, database.lookupIpv4AddressAndDate(
@@ -104,8 +109,10 @@ public class DatabaseTest {
   @Test()
   public void testDuplicateImport() {
     DatabaseImporterImpl database = new DatabaseImporterImpl();
-    database.addRange("20120901", "us", "3.0.0.0", 16777216);
-    database.addRange("20120901", "us", "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20120901", "us",
+        "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20120901", "us",
+        "3.0.0.0", 16777216);
     database.repairTree();
     assertEquals(1, database.getNumberOfElements());
     assertEquals(null, database.lookupIpv4AddressAndDate(
@@ -119,8 +126,10 @@ public class DatabaseTest {
   @Test()
   public void testDuplicateImportDifferentCode() {
     DatabaseImporterImpl database = new DatabaseImporterImpl();
-    database.addRange("20120901", "us", "3.0.0.0", 16777216);
-    database.addRange("20120901", "ca", "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20120901", "us",
+        "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20120901", "ca",
+        "3.0.0.0", 16777216);
     database.repairTree();
     assertEquals(1, database.getNumberOfElements());
     assertEquals("us", database.lookupIpv4AddressAndDate(
@@ -130,9 +139,11 @@ public class DatabaseTest {
   @Test()
   public void testLeaveIpChangeUnchanged() {
     DatabaseImporterImpl database = new DatabaseImporterImpl();
-    database.addRange("20120901", "us", "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20120901", "us",
+        "3.0.0.0", 16777216);
     database.repairTree();
-    database.addRange("20121001", "us", "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20121001", "us",
+        "3.0.0.0", 16777216);
     database.repairTree();
     assertEquals(1, database.getNumberOfElements());
     assertEquals("us", database.lookupIpv4AddressAndDate(
@@ -148,9 +159,11 @@ public class DatabaseTest {
   @Test()
   public void testLeaveIpChangeUnchangedReverseOrder() {
     DatabaseImporterImpl database = new DatabaseImporterImpl();
-    database.addRange("20121001", "us", "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20121001", "us",
+        "3.0.0.0", 16777216);
     database.repairTree();
-    database.addRange("20120901", "us", "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20120901", "us",
+        "3.0.0.0", 16777216);
     database.repairTree();
     assertEquals(1, database.getNumberOfElements());
     assertEquals("us", database.lookupIpv4AddressAndDate(
@@ -166,11 +179,14 @@ public class DatabaseTest {
   @Test()
   public void testMissingIpRange() {
     DatabaseImporterImpl database = new DatabaseImporterImpl();
-    database.addRange("20120901", "us", "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20120901", "us",
+        "3.0.0.0", 16777216);
     database.repairTree();
-    database.addRange("20121101", "us", "3.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20121101", "us",
+        "3.0.0.0", 16777216);
     database.repairTree();
-    database.addRange("20121001", "us", "6.0.0.0", 16777216);
+    database.addRegionalRegistryStatsFileRange("20121001", "us",
+        "6.0.0.0", 16777216);
     database.repairTree();
     assertEquals(3, database.getNumberOfElements());
     assertEquals("us", database.lookupIpv4AddressAndDate(
