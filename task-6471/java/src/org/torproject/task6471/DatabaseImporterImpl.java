@@ -94,10 +94,14 @@ public class DatabaseImporterImpl extends DatabaseImpl
           /* TODO Add support for IPv6 addresses. */
           continue;
         }
-        String countryCode = parts[1].toLowerCase();
+        String code = parts[1].toLowerCase();
+        if (code.length() != 2) {
+          /* Don't import illegal range. */
+          continue;
+        }
         String startAddressString = parts[3];
         long addresses = Long.parseLong(parts[4]);
-        this.addRange(databaseFileName, countryCode, startAddressString,
+        this.addRange(databaseFileName, code, startAddressString,
             addresses);
       }
       br.close();
@@ -123,13 +127,8 @@ public class DatabaseImporterImpl extends DatabaseImpl
    * is called prior to any lookupAddress() calls.  No further checks are
    * performed that the tree is repaired before looking up an address.
    */
-  void addRange(String databaseFileName, String countryCode,
+  void addRange(String databaseFileName, String code,
       String startAddressString, long addresses) {
-
-    if (countryCode.length() != 2) {
-      /* Don't import illegal range. */
-      return;
-    }
 
     this.rangeImports++;
     String databaseDateString =
@@ -151,8 +150,8 @@ public class DatabaseImporterImpl extends DatabaseImpl
      * We shouldn't mess with the tree directly while iterating  over it,
      * so let's for now only calculate what changes we want to make. */
     SortedMap<Long, TreeElement> updateElements =
-        this.getUpdatesForAddingRange(databaseDate, countryCode,
-            startAddress, endAddress);
+        this.getUpdatesForAddingRange(databaseDate, code, startAddress,
+        endAddress);
 
     /* Apply updates.  Elements with non-null values are added, elements
      * with null values are removed. */
@@ -169,8 +168,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
    * Calculate necessary changes to the tree to add a range.
    */
   private SortedMap<Long, TreeElement> getUpdatesForAddingRange(
-      int databaseDate, String countryCode, long startAddress,
-      long endAddress) {
+      int databaseDate, String code, long startAddress, long endAddress) {
 
     /* Keep updates in a single tree where non-null values will later be
      * added, possibly replacing existing elements, and null values will
@@ -205,7 +203,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
       long eEndAddress = e.getValue().endAddress;
       int eFirstDbDate = convertKeyToDate(e.getKey());
       int eLastDbDate = e.getValue().lastDbDate;
-      String eCountryCode = e.getValue().countryCode;
+      String eCode = e.getValue().code;
 
       /* If the next (partial) range starts after the current element
        * ends, add the new range. */
@@ -213,7 +211,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
           nextEndAddress >= startAddress) {
         updateElements.put(convertAddressAndDateToKey(nextStartAddress,
             nextFirstDbDate), new TreeElement(nextEndAddress,
-            nextLastDbDate, countryCode));
+            nextLastDbDate, code));
         nextEndAddress = nextStartAddress - 1L;
         nextStartAddress = startAddress;
         nextFirstDbDate = databaseDate;
@@ -226,7 +224,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
           nextEndAddress >= startAddress) {
         updateElements.put(convertAddressAndDateToKey(eEndAddress + 1L,
             databaseDate), new TreeElement(nextEndAddress, databaseDate,
-            countryCode));
+            code));
         nextEndAddress = eEndAddress;
         nextStartAddress = startAddress;
         nextFirstDbDate = databaseDate;
@@ -247,10 +245,10 @@ public class DatabaseImporterImpl extends DatabaseImpl
       if (eStartAddress <= endAddress && eEndAddress > endAddress) {
         updateElements.put(convertAddressAndDateToKey(endAddress + 1L,
             eFirstDbDate), new TreeElement(eEndAddress, eLastDbDate,
-            eCountryCode));
+            eCode));
         updateElements.put(convertAddressAndDateToKey(eStartAddress,
             eFirstDbDate), new TreeElement(endAddress, eLastDbDate,
-            eCountryCode));
+            eCode));
         eEndAddress = endAddress;
       }
 
@@ -260,10 +258,10 @@ public class DatabaseImporterImpl extends DatabaseImpl
       if (eStartAddress < startAddress && eEndAddress >= startAddress) {
         updateElements.put(convertAddressAndDateToKey(eStartAddress,
             eFirstDbDate), new TreeElement(startAddress - 1L, eLastDbDate,
-            eCountryCode));
+            eCode));
         updateElements.put(convertAddressAndDateToKey(startAddress,
             eFirstDbDate), new TreeElement(eEndAddress, eLastDbDate,
-            eCountryCode));
+            eCode));
         eStartAddress = startAddress;
       }
 
@@ -272,11 +270,11 @@ public class DatabaseImporterImpl extends DatabaseImpl
       nextStartAddress = eStartAddress;
       nextEndAddress = eEndAddress;
 
-      /* If the range is already contained and has the same country code,
-       * mark it as updated.  If it's contained with a different country
-       * code, ignore the update. */
+      /* If the range is already contained and has the same code, mark it
+       * as updated.  If it's contained with a different code, ignore the
+       * update. */
       if (eFirstDbDate <= databaseDate && eLastDbDate >= databaseDate) {
-        if (eCountryCode.equals(countryCode)) {
+        if (eCode.equals(code)) {
           nextFirstDbDate = eFirstDbDate;
           nextLastDbDate = eLastDbDate;
         } else {
@@ -288,7 +286,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
       /* See if we can merge the new range with the previous or next
        * range.  If so, extend our database range and mark the existing
        * element for deletion. */
-      if (eCountryCode.equals(countryCode)) {
+      if (eCode.equals(code)) {
         if (eLastDbDate == previousDatabaseDate) {
           nextFirstDbDate = eFirstDbDate;
           updateElements.put(convertAddressAndDateToKey(eStartAddress,
@@ -306,7 +304,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
     while (nextEndAddress >= startAddress) {
       updateElements.put(convertAddressAndDateToKey(nextStartAddress,
           nextFirstDbDate), new TreeElement(nextEndAddress,
-          nextLastDbDate, countryCode));
+          nextLastDbDate, code));
       nextEndAddress = nextStartAddress - 1L;
       nextStartAddress = startAddress;
       nextFirstDbDate = databaseDate;
@@ -355,7 +353,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
         int eLastDbDate = e.getValue().lastDbDate;
         long eStartAddress = convertKeyToAddress(e.getKey());
         long eEndAddress = e.getValue().endAddress;
-        String eCountryCode = e.getValue().countryCode;
+        String eCode = e.getValue().code;
         int start = eFirstDbDate, end = eFirstDbDate;
         for (int cur : this.databaseDates.tailSet(eFirstDbDate)) {
           if (cur > eLastDbDate) {
@@ -364,8 +362,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
           if (cur == addedDatabaseDate) {
             if (start >= 0 && end >= 0) {
               updateElements.put(convertAddressAndDateToKey(eStartAddress,
-                  start), new TreeElement(eEndAddress, end,
-                  eCountryCode));
+                  start), new TreeElement(eEndAddress, end, eCode));
               start = end = -1;
             }
           } else if (start < 0) {
@@ -376,7 +373,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
         }
         if (start >= 0 && end >= 0) {
           updateElements.put(convertAddressAndDateToKey(eStartAddress,
-              start), new TreeElement(eEndAddress, end, eCountryCode));
+              start), new TreeElement(eEndAddress, end, eCode));
         }
       }
     }
@@ -422,7 +419,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
         bw.write(String.format("%s,%s,%s,%s,%s%n",
             convertKeyToAddressString(e.getKey()),
             convertAddressNumberToString(e.getValue().endAddress),
-            e.getValue().countryCode,
+            e.getValue().code,
             convertKeyToDateString(e.getKey()),
             convertDateNumberToString(e.getValue().lastDbDate)));
       }
@@ -452,7 +449,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
       sb.append(String.format("%n  %s %s %s %s %s",
           convertKeyToAddressString(e.getKey()),
           convertAddressNumberToString(e.getValue().endAddress),
-          e.getValue().countryCode,
+          e.getValue().code,
           convertKeyToDateString(e.getKey()),
           convertDateNumberToString(e.getValue().lastDbDate)));
       if (--entries <= 0) {

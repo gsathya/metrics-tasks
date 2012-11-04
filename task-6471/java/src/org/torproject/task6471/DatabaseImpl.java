@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.SortedSet;
@@ -17,7 +16,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
- * Implementation of database holding multiple GeoIP databases with
+ * Implementation of database holding multiple GeoIP or ASN databases with
  * special focus on lookup performance, import performance, and memory
  * consumption (in that order).
  *
@@ -26,7 +25,7 @@ import java.util.TreeSet;
  * the start IPv4 address in the higher bits and the first database
  * publication date containing that range in the lower bits.  The tree
  * element itself contains the end IPv4 address, last database publication
- * date, and country code.
+ * date, and country code or AS number.
  *
  * Lookups for a given address and random date only require iterating
  * backwards over ranges with start address smaller than or equaling the
@@ -42,20 +41,19 @@ public class DatabaseImpl implements Database {
 
   /**
    * Tree element containing an end IPv4 address, last database date,
-   * last database index, and country code.  Start IPv4 address and first
-   * database date are encoded in the key under which the element is
-   * stored.
+   * last database index, and country code or AS number.  Start IPv4
+   * address and first database date are encoded in the key under which
+   * the element is stored.
    */
   protected static class TreeElement {
     protected long endAddress;
     protected int lastDbDate;
-    protected String countryCode;
+    protected String code;
     protected boolean modifiedInLastImport;
-    protected TreeElement(long endAddress, int lastDbDate,
-        String countryCode) {
+    protected TreeElement(long endAddress, int lastDbDate, String code) {
       this.endAddress = endAddress;
       this.lastDbDate = lastDbDate;
-      this.countryCode = countryCode;
+      this.code = code;
       this.modifiedInLastImport = true;
     }
   }
@@ -86,7 +84,7 @@ public class DatabaseImpl implements Database {
    * Look up address and date by iterating backwards over possibly
    * matching ranges.
    */
-  public String lookupCountryCodeFromIpv4AddressAndDate(
+  public String lookupIpv4AddressAndDate(
       String addressString, String dateString) {
     this.addressLookups++;
 
@@ -124,8 +122,8 @@ public class DatabaseImpl implements Database {
       }
 
       /* Both address and date ranges match, so return the assigned
-       * country code. */
-      return e.getValue().countryCode;
+       * code. */
+      return e.getValue().code;
     }
 
     /* No ranges (left) to look at.  We don't have what we were looking
@@ -222,7 +220,7 @@ public class DatabaseImpl implements Database {
       sb.append(String.format("%n  %s %s %s %s %s",
           convertKeyToAddressString(e.getKey()),
           convertAddressNumberToString(e.getValue().endAddress),
-          e.getValue().countryCode,
+          e.getValue().code,
           convertKeyToDateString(e.getKey()),
           convertDateNumberToString(e.getValue().lastDbDate)));
       if (--entries <= 0) {
@@ -259,12 +257,12 @@ public class DatabaseImpl implements Database {
           String[] parts = line.split(",");
           long startAddress = convertAddressStringToNumber(parts[0]);
           long endAddress = convertAddressStringToNumber(parts[1]);
-          String countryCode = parts[2];
+          String code = parts[2];
           int firstDbDate = convertDateStringToNumber(parts[3]);
           int lastDbDate = convertDateStringToNumber(parts[4]);
           this.ranges.put(convertAddressAndDateToKey(startAddress,
               firstDbDate), new TreeElement(endAddress, lastDbDate,
-              countryCode));
+              code));
         }
       }
       br.close();
@@ -272,32 +270,5 @@ public class DatabaseImpl implements Database {
       return false;
     }
     return true;
-  }
-
-  /** Mapping from country codes to country names. */
-  private static SortedMap<String, String> countryNames;
-  static {
-    countryNames = new TreeMap<String, String>();
-    List<String[]> countryList = Countries.getInstance().getCountryList();
-    for (String[] country : countryList) {
-      countryNames.put(country[0], country[1]);
-    }
-  }
-
-  /** Resolve country codes to country names. */
-  public String getCountryNameForCountryCode(String countryCode) {
-    if (countryCode == null) {
-      return null;
-    } else {
-      return countryNames.get(countryCode);
-    }
-  }
-
-  /** Lookup IPv4 address and date and return the country name. */
-  public String lookupCountryNameFromIpv4AddressAndDate(
-      String addressString, String dateString) {
-    return getCountryNameForCountryCode(
-        lookupCountryCodeFromIpv4AddressAndDate(addressString,
-        dateString));
   }
 }

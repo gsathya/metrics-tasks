@@ -75,11 +75,10 @@ public class DatabasePerformanceExample {
           if (testMonth.equals(dbMonth)) {
             String testAddressString = DatabaseImpl.
                 convertKeyToAddressString(test);
-            String countryCode =
-                temp.lookupCountryCodeFromIpv4AddressAndDate(
+            String code = temp.lookupIpv4AddressAndDate(
                 testAddressString, testDateString);
-            if (countryCode != null) {
-              results.put(test, countryCode);
+            if (code != null) {
+              results.put(test, code);
             }
           }
         }
@@ -91,9 +90,9 @@ public class DatabasePerformanceExample {
             convertKeyToAddressString(e.getKey());
         String testDateString = DatabaseImpl.
             convertKeyToDateString(e.getKey());
-        String countryCode = e.getValue();
-        bw.write(testAddressString + "," + testDateString + ","
-            + countryCode + "\n");
+        String code = e.getValue();
+        bw.write(testAddressString + "," + testDateString + "," + code
+            + "\n");
       }
       bw.close();
       long endMillis = System.currentTimeMillis();
@@ -124,7 +123,7 @@ public class DatabasePerformanceExample {
       }
       String expected = "??".equals(parts[2]) ? null : parts[2];
       String result =
-          combinedDatabase.lookupCountryCodeFromIpv4AddressAndDate(
+          combinedDatabase.lookupIpv4AddressAndDate(
           testAddress, testDate);
       tests++;
       if ((expected == null && result != null) ||
@@ -165,7 +164,7 @@ public class DatabasePerformanceExample {
       String testDate = parts[1];
       String expected = parts[2].equals("??") ? null : parts[2];
       String result =
-          combinedDatabase.lookupCountryCodeFromIpv4AddressAndDate(
+          combinedDatabase.lookupIpv4AddressAndDate(
           testAddress, testDate);
       tests++;
       if ((expected == null && result != null) ||
