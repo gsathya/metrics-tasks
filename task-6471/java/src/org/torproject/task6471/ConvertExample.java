@@ -11,7 +11,7 @@ public class ConvertExample {
 
     System.out.print("Saving combined ASN database to disk... ");
     startMillis = endMillis;
-    combinedDatabase.saveCombinedDatabases("asn-2012-07-2012-10.csv");
+    combinedDatabase.saveCombinedDatabases("asn-2005-09-2012-11.csv");
     endMillis = System.currentTimeMillis();
     System.out.println((endMillis - startMillis) + " millis.");
     startMillis = endMillis;
@@ -25,7 +25,7 @@ public class ConvertExample {
 
     System.out.print("Saving combined city database to disk... ");
     startMillis = endMillis;
-    combinedDatabase.saveCombinedDatabases("city-2012-07-2012-10.csv");
+    combinedDatabase.saveCombinedDatabases("city-2009-06-2012-10.csv");
     endMillis = System.currentTimeMillis();
     System.out.println((endMillis - startMillis) + " millis.");
     startMillis = endMillis;

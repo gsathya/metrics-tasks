@@ -32,8 +32,8 @@ public interface DatabaseImporter extends Database {
    * address ranges and block numbers, and GeoLiteCity-Location.csv
    * contains country codes for block numbers, among other things.  Only
    * the range start and end addresses and the country code are imported.
-   * The database date is taken from the file modification time of the
-   * GeoLiteCity-Blocks.csv file.
+   * The database date is taken from the directory name containing blocks
+   * and location file.
    *
    * A typical entry from the GeoLiteCity-Blocks.csv file is:
    *   ""3758093312","3758094335","108612""
@@ -46,8 +46,8 @@ public interface DatabaseImporter extends Database {
   /**
    * Import the contents of one or more Maxmind GeoIPASNum2.csv databases.
    * Only the range start and end addresses and the AS number are
-   * imported.  The database date is taken from the file modification
-   * time.
+   * imported.  The database date is taken from the directory name which
+   * is expected to be yyyy-mm/, e.g., 2012-11/GeoIPASNum2.csv.
    *
    * A typical entry from such a database file is:
    *   "3758063616,3758079999,"AS9381 Wharf T&T Ltd.""

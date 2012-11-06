@@ -170,10 +170,12 @@ public class DatabaseImporterImpl extends DatabaseImpl
 
   boolean importGeoLiteCityBlocksAndLocationFiles(File blocksFile,
       File locationFile) {
-    long lastModifiedMillis = blocksFile.lastModified();
     String databaseFileName = blocksFile.getName() + "+"
         + locationFile.getName();
-    int databaseDate = (int) (lastModifiedMillis / 86400000);
+    String databaseDateString =
+        blocksFile.getParentFile().getName().substring(
+        "GeoLiteCity_".length());
+    int databaseDate = convertDateStringToNumber(databaseDateString);
     this.addDatabase(databaseFileName, databaseDate);
     try {
       /* Parse location file first and remember country codes for given
@@ -262,17 +264,24 @@ public class DatabaseImporterImpl extends DatabaseImpl
   }
 
   private boolean importGeoIPASNum2File(File file) {
-    long lastModifiedMillis = file.lastModified();
     String databaseFileName = file.getName();
-    int databaseDate = (int) (lastModifiedMillis / 86400000);
+    String databaseDateString =
+        file.getParentFile().getName().replaceAll("-", "") + "01";
+    int databaseDate = convertDateStringToNumber(databaseDateString);
     this.addDatabase(databaseFileName, databaseDate);
     try {
       BufferedReader br = new BufferedReader(new FileReader(file));
       String line;
       while ((line = br.readLine()) != null) {
         String[] parts = line.split(",");
-        long startAddress = Long.parseLong(parts[0]),
-            endAddress = Long.parseLong(parts[1]);
+        try {
+          Long.parseLong(parts[0].trim());
+          Long.parseLong(parts[1].trim());
+        } catch (NumberFormatException e) {
+          System.err.println(file.getAbsolutePath() + " '" + line + "'");
+        }
+        long startAddress = Long.parseLong(parts[0].trim()),
+            endAddress = Long.parseLong(parts[1].trim());
         String code = parts[2].split(" ")[0].replaceAll("\"", "");
         if (!code.startsWith("AS")) {
           /* Don't import illegal range. */
