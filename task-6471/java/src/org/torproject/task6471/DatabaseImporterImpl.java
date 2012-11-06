@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -17,7 +16,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.Stack;
-import java.util.TimeZone;
 import java.util.TreeMap;
 
 public class DatabaseImporterImpl extends DatabaseImpl
@@ -55,12 +53,6 @@ public class DatabaseImporterImpl extends DatabaseImpl
     }
     Collections.sort(allFiles, Collections.reverseOrder());
     for (File file : allFiles) {
-      String databaseFileName = file.getName();
-      if (this.databaseFileNames.contains(databaseFileName)) {
-        /* We already imported this file while loading combined databases
-         * from disk. */
-        continue;
-      }
       if (!this.importRegionalRegistryStatsFile(file)) {
         allImportsSuccessful = false;
       }
@@ -124,8 +116,8 @@ public class DatabaseImporterImpl extends DatabaseImpl
     int databaseDate = convertDateStringToNumber(databaseDateString);
     long startAddress = convertAddressStringToNumber(startAddressString);
     long endAddress = startAddress + addresses - 1L;
-    this.addRange(databaseFileName, databaseDate, startAddress,
-        endAddress, code);
+    this.addDatabase(databaseFileName, databaseDate);
+    this.addRange(databaseDate, startAddress, endAddress, code);
   }
 
   public boolean importGeoLiteCityFileOrDirectory(String path) {
@@ -178,13 +170,11 @@ public class DatabaseImporterImpl extends DatabaseImpl
 
   boolean importGeoLiteCityBlocksAndLocationFiles(File blocksFile,
       File locationFile) {
-    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-    dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
     long lastModifiedMillis = blocksFile.lastModified();
-    String databaseFileName = blocksFile.getName() + " "
-        + locationFile.getName() + " "
-        + dateFormat.format(lastModifiedMillis);
+    String databaseFileName = blocksFile.getName() + "+"
+        + locationFile.getName();
     int databaseDate = (int) (lastModifiedMillis / 86400000);
+    this.addDatabase(databaseFileName, databaseDate);
     try {
       /* Parse location file first and remember country codes for given
        * locations. */
@@ -221,8 +211,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
           break;
         }
         String code = locations.get(location);
-        this.addRange(databaseFileName, databaseDate, startAddress,
-            endAddress, code);
+        this.addRange(databaseDate, startAddress, endAddress, code);
       }
       br.close();
     } catch (IOException e) {
@@ -257,12 +246,10 @@ public class DatabaseImporterImpl extends DatabaseImpl
   }
 
   private boolean importGeoIPASNum2File(File file) {
-    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-    dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
     long lastModifiedMillis = file.lastModified();
-    String databaseFileName = file.getName() + " "
-        + dateFormat.format(lastModifiedMillis);
+    String databaseFileName = file.getName();
     int databaseDate = (int) (lastModifiedMillis / 86400000);
+    this.addDatabase(databaseFileName, databaseDate);
     try {
       BufferedReader br = new BufferedReader(new FileReader(file));
       String line;
@@ -275,8 +262,7 @@ public class DatabaseImporterImpl extends DatabaseImpl
           /* Don't import illegal range. */
           continue;
         }
-        this.addRange(databaseFileName, databaseDate, startAddress,
-            endAddress, code);
+        this.addRange(databaseDate, startAddress, endAddress, code);
       }
       br.close();
       this.repairTree();
@@ -292,6 +278,17 @@ public class DatabaseImporterImpl extends DatabaseImpl
   private int rangeImports = 0, rangeImportsKeyLookups = 0;
 
   /**
+   * Add new database date and file name if we didn't know them yet. */
+  void addDatabase(String databaseFileName, int databaseDate) {
+    if (!this.databaseDates.contains(databaseDate)) {
+      this.databaseDates.add(databaseDate);
+      this.addedDatabaseDate = databaseDate;
+    }
+    this.databaseFileNames.add(convertDateNumberToString(databaseDate)
+        + "!" + databaseFileName);
+  }
+
+  /**
    * Add a single address and date range to the tree, which may require
    * splitting up existing ranges.
    *
@@ -300,17 +297,9 @@ public class DatabaseImporterImpl extends DatabaseImpl
    * is called prior to any lookupAddress() calls.  No further checks are
    * performed that the tree is repaired before looking up an address.
    */
-  void addRange(String databaseFileName, int databaseDate,
-      long startAddress, long endAddress, String code) {
+  void addRange(int databaseDate, long startAddress, long endAddress,
+      String code) {
     this.rangeImports++;
-
-    /* Add new database date and file name if we didn't know them yet,
-     * and note that we need to repair the tree after importing. */
-    if (!this.databaseDates.contains(databaseDate)) {
-      this.databaseDates.add(databaseDate);
-      this.addedDatabaseDate = databaseDate;
-    }
-    this.databaseFileNames.add(databaseFileName);
 
     /* We might have to split existing ranges or the new range before
      * adding it to the tree, and we might have to remove existing ranges.

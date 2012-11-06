@@ -71,7 +71,7 @@ public class DatabaseImpl implements Database {
   protected SortedSet<Integer> databaseDates = new TreeSet<Integer>();
 
   /**
-   * Database file names.
+   * Database dates and file names, formatted as yyyymmdd!filename.
    */
   protected SortedSet<String> databaseFileNames = new TreeSet<String>();
 
@@ -243,11 +243,10 @@ public class DatabaseImpl implements Database {
         if (line.startsWith("!")) {
 
           /* First read file header containing database dates. */
-          String databaseFileName = line.substring(1);
-          String databaseDateString =
-              databaseFileName.substring(databaseFileName.length() - 8);
+          String[] parts = line.substring(1).split("!");
+          this.databaseFileNames.add(line.substring(1));
+          String databaseDateString = parts[0];
           int dbDate = convertDateStringToNumber(databaseDateString);
-          this.databaseFileNames.add(databaseFileName);
           this.databaseDates.add(dbDate);
         } else {
 

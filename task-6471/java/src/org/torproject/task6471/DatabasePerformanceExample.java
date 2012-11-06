@@ -19,7 +19,7 @@ import java.util.TreeSet;
 public class DatabasePerformanceExample {
   public static void main(String[] args) throws IOException {
 
-    File testCasesCsvFile = new File("test-cases.csv");
+    File testCasesCsvFile = new File("test-cases-2007-10-2012-09.csv");
     if (!testCasesCsvFile.exists()) {
       System.out.print("Generating test cases... ");
       long startMillis = System.currentTimeMillis();
