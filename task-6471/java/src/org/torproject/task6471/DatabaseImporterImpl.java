@@ -194,6 +194,8 @@ public class DatabaseImporterImpl extends DatabaseImpl
       }
       br.close();
       /* Parse blocks file and add ranges to the database. */
+      long lastStartAddress = 0L, lastEndAddress = -2L;
+      String lastCode = null;
       br = new BufferedReader(new FileReader(blocksFile));
       while ((line = br.readLine()) != null) {
         if (!line.startsWith("\"")) {
@@ -211,7 +213,21 @@ public class DatabaseImporterImpl extends DatabaseImpl
           break;
         }
         String code = locations.get(location);
-        this.addRange(databaseDate, startAddress, endAddress, code);
+        if (lastStartAddress == 0L) {
+          lastStartAddress = startAddress;
+          lastCode = code;
+        } else if (lastEndAddress + 1L != startAddress ||
+            !code.equals(lastCode)) {
+          this.addRange(databaseDate, lastStartAddress, lastEndAddress,
+              lastCode);
+          lastStartAddress = startAddress;
+          lastCode = code;
+        }
+        lastEndAddress = endAddress;
+      }
+      if (lastStartAddress != 0L) {
+        this.addRange(databaseDate, lastStartAddress, lastEndAddress,
+            lastCode);
       }
       br.close();
     } catch (IOException e) {
@@ -493,9 +509,6 @@ public class DatabaseImporterImpl extends DatabaseImpl
    * interface, because the caller needs to make sure that repairTree()
    * is called prior to any lookupAddress() calls.  No further checks are
    * performed that the tree is repaired before look up an address.
-   *
-   * TODO While repairing the tree, we might also optimize it by merging
-   * adjacent address ranges with the same database date ranges.
    */
   void repairTree() {
     if (this.addedDatabaseDate < 0) {
