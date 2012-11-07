@@ -1,6 +1,4 @@
 import bisect
-import socket
-import struct
 import datetime
 
 class Range:
@@ -10,20 +8,12 @@ class Range:
     # variable size, so we can use 48 bit keys for IPv4 (32 bit for the
     # IPv4 address and 16 bit for the database date) and 144 bit keys for
     # IPv6.
-    self.start_address = Database.address_ston(parts[0])
-    self.end_address = Database.address_ston(parts[1])
+    self.start_address = Database.address_string_to_number(parts[0])
+    self.end_address = Database.address_string_to_number(parts[1])
     self.code = parts[2]
-    self.start_date = Database.date_ston(parts[3])
-    self.end_date = Database.date_ston(parts[4])
+    self.start_date = Database.date_string_to_number(parts[3])
+    self.end_date = Database.date_string_to_number(parts[4])
     self.key = Database.create_key(self.start_address, self.start_date)
-
-  def __str__(self):
-    return "%s,%s,%s,%s,%s" % \
-          (Database.address_ntos(self.start_address),
-           Database.address_ntos(self.end_address),
-           self.code,
-           Database.date_ntos(self.start_date),
-           Database.date_ntos(self.end_date))
 
 class Database:
   def __init__(self):
@@ -33,41 +23,15 @@ class Database:
     self.keys = []
 
   @staticmethod
-  def address_ston(address_string):
-    try:
-      address_struct = socket.inet_pton(socket.AF_INET, address_string)
-    except socket.error:
-        raise ValueError
-    return struct.unpack('!I', address_struct)[0]
+  def address_string_to_number(address_string):
+    octets = address_string.split('.')
+    return long(''.join(["%02X" % long(octet) for octet in octets]), 16)
 
   @staticmethod
-  def address_ntos(address):
-    return socket.inet_ntop(socket.AF_INET, struct.pack('!I', address))
-
-  @staticmethod
-  def date_ston(date_string):
+  def date_string_to_number(date_string):
     date_datetime = datetime.datetime.strptime(date_string, '%Y%m%d')
+    # Divide seconds by 86400=24*60*60 for number of days since 19700101
     return int(date_datetime.strftime('%s')) / 86400
-
-  @staticmethod
-  def date_ntos(date):
-    return datetime.datetime.fromtimestamp(date * 86400).strftime('%Y%m%d')
-
-  @staticmethod
-  def address_kton(key):
-    return key >> 16
-
-  @staticmethod
-  def date_kton(key):
-    return key & 0xffff
-
-  @staticmethod
-  def address_ktos(key):
-    return Database.address_ntos(Database.address_kton(key))
-
-  @staticmethod
-  def date_ktos(key):
-    return Database.date_ntos(Database.date_kton(key))
 
   @staticmethod
   def create_key(address, date):
@@ -98,8 +62,8 @@ class Database:
     if len(self.data) == 0:
       return '??'
     dates_pos = max(0, bisect.bisect(self.dates, date_string) - 1)
-    address = Database.address_ston(address_string)
-    date = Database.date_ston(self.dates[dates_pos])
+    address = Database.address_string_to_number(address_string)
+    date = Database.date_string_to_number(self.dates[dates_pos])
     key = Database.create_key(address, date)
     pos = bisect.bisect(self.keys, key + 1)
     # Look up address and date by iterating backwards over possibly
