@@ -17,7 +17,9 @@ class Range:
 
 class Database:
   def __init__(self):
-    # TODO Replace with crit-bit tree if performance becomes a problem
+    # TODO Replace with crit-bit tree if performance becomes a problem;
+    # alternatively, use an OrderedDict which is the equivalent of
+    # LinkedHashMap in Java.
     self.data = []
     self.dates = []
     self.keys = []
