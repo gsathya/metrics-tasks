@@ -42,21 +42,14 @@ class Database:
       for line in input_file.readlines():
         line = line.strip()
         if line.startswith('!'):
-          self.add_date(line)
-          continue
+          date = line.split("!")[1]
+          if date not in self.dates:
+            bisect.insort(self.dates, date)
         else:
-          self.add_range(line)
+          r = Range(line)
+          self.data.append((r.key, r))
     self.data.sort()
     self.keys = [r[0] for r in self.data]
-
-  def add_date(self, line):
-    date = line.split("!")[1]
-    if date not in self.dates:
-      bisect.insort(self.dates, date)
-
-  def add_range(self, line):
-    r = Range(line)
-    self.data.append((r.key, r))
 
   def lookup_address_and_date(self, address_string, date_string):
     if len(self.data) == 0:
