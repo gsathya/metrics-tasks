@@ -41,7 +41,7 @@ class Database:
 
   def load_combined_databases(self, path):
     with open(path) as input_file:
-      for line in input_file.readlines():
+      for line in input_file:
         line = line.strip()
         if line.startswith('!'):
           date = line.split("!")[1]
@@ -86,7 +86,7 @@ if __name__ == "__main__":
   db = Database()
   db.load_combined_databases('geoip-2007-10-2012-09.csv')
   with open('test-cases-2007-10-2012-09.csv') as input_file:
-    for line in input_file.readlines():
+    for line in input_file:
       line = line.strip()
       parts = line.split(',')
       address_string = parts[0]
