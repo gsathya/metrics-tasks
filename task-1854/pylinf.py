@@ -12,12 +12,14 @@ import sys
 import math
 import os
 import pygeoip
+import tarfile
 import StringIO
-import stem.descriptor
+import stem.descriptor.server_descriptor
 
 from optparse import OptionParser
 from binascii import b2a_hex, a2b_base64, a2b_hex
-from stem.descriptor.server_descriptor import RelayDescriptor, BridgeDescriptor
+
+descriptors = {}
 
 class Router:
     def __init__(self):
@@ -54,13 +56,7 @@ class Router:
 
     def get_advertised_bw(self, hex_digest):
         try:
-            with open(options.server_desc+'/'+hex_digest) as f:
-                data = f.read()
-
-            desc_iter = stem.descriptor.server_descriptor.parse_file(StringIO.StringIO(data))
-            desc_entries = list(desc_iter)
-            desc = desc_entries[0]
-            return min(desc.average_bandwidth, desc.burst_bandwidth, desc.observed_bandwidth)
+            return descriptors[self.hex_digest]
         except:
             return 0
 
@@ -73,6 +69,33 @@ def parse_bw_weights(values):
         return data
     except:
         return None
+
+def load_server_desc(tar_file_path):
+    """
+    tar_file_path -> 'string' or 'list'
+    represents path{s} to tar file{s}
+    """
+    global descriptors
+
+    if type(tar_file_path) == str: tar_file_path = [tar_file_path]
+
+    for file_path in tar_file_path:
+        with tarfile.open(file_path) as tar_fh:
+            for member in tar_fh:
+                if not member.isfile():
+                    continue
+
+                tar_file_data=tar_fh.extractfile(member)
+                data=tar_file_data.read()
+                desc_iter = stem.descriptor.server_descriptor.parse_file(
+                    StringIO.StringIO(data))
+                desc_entries = list(desc_iter)
+                desc = desc_entries[0]
+
+                # currently we require only advertised_bw
+                descriptors[desc.digest()] = min(desc.average_bandwidth,
+                                                 desc.burst_bandwidth,
+                                                 desc.observed_bandwidth)
 
 def run(file_name):
     routers = []
@@ -179,6 +202,9 @@ if __name__ == "__main__":
     options = parse_args()
     gi_db = pygeoip.GeoIP(options.gi_db)
     as_db = pygeoip.GeoIP(options.as_db)
+
+    # load all server descs into memeory
+    load_server_desc(options.server_desc)
 
     with open(options.output, 'w') as f:
         for file_name in os.listdir(options.consensus):
