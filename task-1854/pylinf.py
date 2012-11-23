@@ -35,8 +35,8 @@ class Router:
            hex_digest = b2a_hex(a2b_base64(values[2]+"="))
            self.advertised_bw = self.get_advertised_bw(hex_digest)
            ip = values[5]
-           self.country = gi_db.country_code_by_addr(ip)
-           self.as_no = self.get_as_details(ip)
+           #self.country = gi_db.country_code_by_addr(ip)
+           #self.as_no = self.get_as_details(ip)
 
     def add_weights(self, values):
            self.bandwidth = int(values[0].split('=')[1])
@@ -58,6 +58,7 @@ class Router:
         try:
             return descriptors[self.hex_digest]
         except:
+            print "Unexpected error:", sys.exc_info()[0]
             return 0
 
 def parse_bw_weights(values):
@@ -68,6 +69,7 @@ def parse_bw_weights(values):
             data[key] = float(value) / 10000
         return data
     except:
+        print "Unexpected error:", sys.exc_info()[0]
         return None
 
 def load_server_desc(tar_file_path):
@@ -80,13 +82,15 @@ def load_server_desc(tar_file_path):
     if type(tar_file_path) == str: tar_file_path = [tar_file_path]
 
     for file_path in tar_file_path:
-        with tarfile.open(file_path) as tar_fh:
-            for member in tar_fh:
-                if not member.isfile():
-                    continue
+        tar_fh = tarfile.open(file_path)
+        for member in tar_fh:
+            if not member.isfile():
+                continue
 
-                tar_file_data=tar_fh.extractfile(member)
-                data=tar_file_data.read()
+            tar_file_data=tar_fh.extractfile(member)
+            data=tar_file_data.read()
+
+            try:
                 desc_iter = stem.descriptor.server_descriptor.parse_file(
                     StringIO.StringIO(data))
                 desc_entries = list(desc_iter)
@@ -96,36 +100,45 @@ def load_server_desc(tar_file_path):
                 descriptors[desc.digest()] = min(desc.average_bandwidth,
                                                  desc.burst_bandwidth,
                                                  desc.observed_bandwidth)
+            except:
+                print "Unexpected error:", sys.exc_info()[0]
+                continue
+        tar_fh.close()
 
-def run(file_name):
+def run(data):
     routers = []
     router = None
     result_string = []
     Wed, Wee, Wgd, Wgg = 1, 1, 1, 1
+
     # parse consensus
-    with open(file_name, 'r') as f:
-        for line in f.readlines():
+    for line in data.split("\n"):
+        try:
             key = line.split()[0]
             values = line.split()[1:]
-            if key =='r':
-                router = Router()
-                routers.append(router)
-                router.add_router_info(values)
-            elif key == 's':
-                router.add_flags(values)
-            elif key == 'w':
-                router.add_weights(values)
-            elif key == 'valid-after':
-                valid_after = ' '.join(values)
-            elif key == 'bandwidth-weights':
-                data = parse_bw_weights(values)
-                try:
-                    Wed = data['Wed']
-                    Wee = data['Wee']
-                    Wgd = data['Wgd']
-                    Wgg = data['Wgg']
-                except:
-                    pass
+        except:
+            print "Unexpected error:", sys.exc_info()[0]
+            # we don't need sigs
+            continue
+        if key =='r':
+            router = Router()
+            routers.append(router)
+            router.add_router_info(values)
+        elif key == 's':
+            router.add_flags(values)
+        elif key == 'w':
+            router.add_weights(values)
+        elif key == 'valid-after':
+            valid_after = ' '.join(values)
+        elif key == 'bandwidth-weights':
+            data = parse_bw_weights(values)
+            try:
+                Wed = data['Wed']
+                Wee = data['Wee']
+                Wgd = data['Wgd']
+                Wgg = data['Wgg']
+            except:
+                pass
 
     if len(routers) <= 0:
         return
@@ -206,8 +219,16 @@ if __name__ == "__main__":
     # load all server descs into memeory
     load_server_desc(options.server_desc)
 
-    with open(options.output, 'w') as f:
+    with open(options.output, 'w') as out_fh:
         for file_name in os.listdir(options.consensus):
-            string = run(os.path.join(options.consensus, file_name))
-            if string:
-                f.write("%s\n" % (string))
+            file_path = os.path.join(options.consensus, file_name)
+            tar_fh = tarfile.open(file_path)
+            for member in tar_fh:
+                if not member.isfile():
+                    continue
+                tar_file_data=tar_fh.extractfile(member)
+                data=tar_file_data.read()
+                output_string = run(data)
+                if output_string:
+                    out_fh.write("%s\n" % (output_string))
+            tar_fh.close()
