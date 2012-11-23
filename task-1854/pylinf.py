@@ -25,6 +25,7 @@ class Router:
     def __init__(self):
         self.prob = None
         self.bandwidth = None
+	self.hex_digest = None
         self.advertised_bw = None
         self.country = None
         self.as_no = None
@@ -32,8 +33,8 @@ class Router:
         self.is_guard = None
 
     def add_router_info(self, values):
-           hex_digest = b2a_hex(a2b_base64(values[2]+"="))
-           self.advertised_bw = self.get_advertised_bw(hex_digest)
+           self.hex_digest = b2a_hex(a2b_base64(values[2]+"="))
+           self.advertised_bw = self.get_advertised_bw(self.hex_digest)
            ip = values[5]
            #self.country = gi_db.country_code_by_addr(ip)
            #self.as_no = self.get_as_details(ip)
