@@ -13,6 +13,7 @@ import math
 import os
 import pygeoip
 import tarfile
+import pickle
 import StringIO
 import stem.descriptor.server_descriptor as server_descriptor
 
@@ -25,8 +26,8 @@ class Router:
     def __init__(self):
         self.prob = None
         self.bandwidth = None
-	self.hex_digest = None
         self.advertised_bw = None
+        self.hex_digest = None
         self.country = None
         self.as_no = None
         self.is_exit = None
@@ -56,7 +57,7 @@ class Router:
             return ""
 
     def get_advertised_bw(self, hex_digest):
-        return descriptors[self.hex_digest]
+        return descriptors[self.hex_digest.upper()]
 
 def parse_bw_weights(values):
     data = {}
@@ -218,6 +219,10 @@ if __name__ == "__main__":
     for file_name in os.listdir(options.server_desc):
         server_desc_files.append(os.path.join(options.server_desc, file_name))
     load_server_desc(server_desc_files)
+
+    # Pickle descriptors
+    with open('data.pkl', 'wb') as output:
+        pickle.dump(descriptors, output)
 
     with open(options.output, 'w') as out_fh:
         for file_name in os.listdir(options.consensus):
