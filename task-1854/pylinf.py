@@ -14,7 +14,7 @@ import os
 import pygeoip
 import tarfile
 import StringIO
-import stem.descriptor.server_descriptor
+import stem.descriptor.server_descriptor as server_descriptor
 
 from optparse import OptionParser
 from binascii import b2a_hex, a2b_base64, a2b_hex
@@ -55,11 +55,7 @@ class Router:
             return ""
 
     def get_advertised_bw(self, hex_digest):
-        try:
-            return descriptors[self.hex_digest]
-        except:
-            print "Unexpected error:", sys.exc_info()[0]
-            return 0
+        return descriptors[self.hex_digest]
 
 def parse_bw_weights(values):
     data = {}
@@ -91,8 +87,7 @@ def load_server_desc(tar_file_path):
             data=tar_file_data.read()
 
             try:
-                desc_iter = stem.descriptor.server_descriptor.parse_file(
-                    StringIO.StringIO(data))
+                desc_iter = server_descriptor.parse_file(StringIO.StringIO(data), validate=False)
                 desc_entries = list(desc_iter)
                 desc = desc_entries[0]
 
@@ -101,7 +96,7 @@ def load_server_desc(tar_file_path):
                                                  desc.burst_bandwidth,
                                                  desc.observed_bandwidth)
             except:
-                print "Unexpected error:", sys.exc_info()[0]
+                print "Unexpected error:", sys.exc_info()
                 continue
         tar_fh.close()
 
@@ -216,8 +211,12 @@ if __name__ == "__main__":
     gi_db = pygeoip.GeoIP(options.gi_db)
     as_db = pygeoip.GeoIP(options.as_db)
 
+    server_desc_files = []
+
     # load all server descs into memeory
-    load_server_desc(options.server_desc)
+    for file_name in os.listdir(options.server_desc):
+        server_desc_files.append(os.path.join(options.server_desc, file_name))
+    load_server_desc(server_desc_files)
 
     with open(options.output, 'w') as out_fh:
         for file_name in os.listdir(options.consensus):
