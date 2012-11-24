@@ -57,7 +57,9 @@ class Router:
             return ""
 
     def get_advertised_bw(self, hex_digest):
-        return descriptors[self.hex_digest.upper()]
+        try:
+            return descriptors[self.hex_digest.upper()]
+        except: return 0
 
 def parse_bw_weights(values):
     data = {}
@@ -193,7 +195,7 @@ def parse_args():
     parser.add_option("-a", "--as", dest="as_db", default="GeoIPASNum.dat",
                       help="Input AS GeoIP database")
     parser.add_option("-s", "--server_desc", dest="server_desc",
-                      default="data/relay-descriptors/server-descriptors/", help="Server descriptors directory")
+                      default=False, help="Server descriptors directory")
     parser.add_option("-o", "--output", dest="output", default="entropy.csv",
                       help="Output filename")
     parser.add_option("-c", "--consensus", dest="consensus", default="in/consensus",
@@ -216,7 +218,8 @@ if __name__ == "__main__":
     if options.pickled_data:
         with open('data.pkl', 'rb') as pkl_input:
             descriptors = pickle.load(pkl_input)
-    else:
+
+    if options.server_desc:
         # load all server descs into memeory
         for file_name in os.listdir(options.server_desc):
             server_desc_files.append(os.path.join(options.server_desc, file_name))
