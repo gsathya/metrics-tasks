@@ -67,7 +67,6 @@ def parse_bw_weights(values):
             data[key] = float(value) / 10000
         return data
     except:
-        print "Unexpected error:", sys.exc_info()[0]
         return None
 
 def load_server_desc(tar_file_path):
@@ -88,18 +87,16 @@ def load_server_desc(tar_file_path):
             tar_file_data=tar_fh.extractfile(member)
             data=tar_file_data.read()
 
-            try:
-                desc_iter = server_descriptor.parse_file(StringIO.StringIO(data), validate=False)
-                desc_entries = list(desc_iter)
-                desc = desc_entries[0]
 
-                # currently we require only advertised_bw
-                descriptors[desc.digest()] = min(desc.average_bandwidth,
-                                                 desc.burst_bandwidth,
-                                                 desc.observed_bandwidth)
-            except:
-                print "Unexpected error:", sys.exc_info()
-                continue
+            desc_iter = server_descriptor.parse_file(StringIO.StringIO(data), validate=False)
+            desc_entries = list(desc_iter)
+            desc = desc_entries[0]
+
+            # currently we require only advertised_bw
+            descriptors[desc.digest()] = min(desc.average_bandwidth,
+                                             desc.burst_bandwidth,
+                                             desc.observed_bandwidth)
+
         tar_fh.close()
 
 def run(data):
@@ -114,8 +111,6 @@ def run(data):
             key = line.split()[0]
             values = line.split()[1:]
         except:
-            print "Unexpected error:", sys.exc_info()[0]
-            # we don't need sigs
             continue
         if key =='r':
             router = Router()
@@ -203,6 +198,8 @@ def parse_args():
                       help="Output filename")
     parser.add_option("-c", "--consensus", dest="consensus", default="in/consensus",
                       help="Input consensus dir")
+    parser.add_option("-p", "--pickled_data", dest="pickled_data", default=False,
+                      help="Input pickled file")
 
     (options, args) = parser.parse_args()
 
@@ -214,15 +211,18 @@ if __name__ == "__main__":
     as_db = pygeoip.GeoIP(options.as_db)
 
     server_desc_files = []
+    global descriptors
 
-    # load all server descs into memeory
-    for file_name in os.listdir(options.server_desc):
-        server_desc_files.append(os.path.join(options.server_desc, file_name))
-    load_server_desc(server_desc_files)
-
-    # Pickle descriptors
-    with open('data.pkl', 'wb') as output:
-        pickle.dump(descriptors, output)
+    if options.pickled_data:
+        with open('data.pkl', 'rb') as pkl_input:
+            descriptors = pickle.load(pkl_input)
+    else:
+        # load all server descs into memeory
+        for file_name in os.listdir(options.server_desc):
+            server_desc_files.append(os.path.join(options.server_desc, file_name))
+        load_server_desc(server_desc_files)
+        with open('data.pkl', 'wb') as output:
+            pickle.dump(descriptors, output)
 
     with open(options.output, 'w') as out_fh:
         for file_name in os.listdir(options.consensus):
