@@ -12,29 +12,33 @@ import sys
 import math
 import os
 import pygeoip
+import tarfile
+import pickle
 import StringIO
-import stem.descriptor
+import stem.descriptor.server_descriptor as server_descriptor
 
 from optparse import OptionParser
 from binascii import b2a_hex, a2b_base64, a2b_hex
-from stem.descriptor.server_descriptor import RelayDescriptor, BridgeDescriptor
+
+descriptors = {}
 
 class Router:
     def __init__(self):
         self.prob = None
         self.bandwidth = None
         self.advertised_bw = None
+        self.hex_digest = None
         self.country = None
         self.as_no = None
         self.is_exit = None
         self.is_guard = None
 
     def add_router_info(self, values):
-           hex_digest = b2a_hex(a2b_base64(values[2]+"="))
-           self.advertised_bw = self.get_advertised_bw(hex_digest)
+           self.hex_digest = b2a_hex(a2b_base64(values[2]+"="))
+           self.advertised_bw = self.get_advertised_bw(self.hex_digest)
            ip = values[5]
-           self.country = gi_db.country_code_by_addr(ip)
-           self.as_no = self.get_as_details(ip)
+           #self.country = gi_db.country_code_by_addr(ip)
+           #self.as_no = self.get_as_details(ip)
 
     def add_weights(self, values):
            self.bandwidth = int(values[0].split('=')[1])
@@ -54,15 +58,8 @@ class Router:
 
     def get_advertised_bw(self, hex_digest):
         try:
-            with open(options.server_desc+'/'+hex_digest) as f:
-                data = f.read()
-
-            desc_iter = stem.descriptor.server_descriptor.parse_file(StringIO.StringIO(data))
-            desc_entries = list(desc_iter)
-            desc = desc_entries[0]
-            return min(desc.average_bandwidth, desc.burst_bandwidth, desc.observed_bandwidth)
-        except:
-            return 0
+            return descriptors[self.hex_digest.upper()]
+        except: return 0
 
 def parse_bw_weights(values):
     data = {}
@@ -74,35 +71,68 @@ def parse_bw_weights(values):
     except:
         return None
 
-def run(file_name):
+def load_server_desc(tar_file_path):
+    """
+    tar_file_path -> 'string' or 'list'
+    represents path{s} to tar file{s}
+    """
+    global descriptors
+
+    if type(tar_file_path) == str: tar_file_path = [tar_file_path]
+
+    for file_path in tar_file_path:
+        tar_fh = tarfile.open(file_path)
+        for member in tar_fh:
+            if not member.isfile():
+                continue
+
+            tar_file_data=tar_fh.extractfile(member)
+            data=tar_file_data.read()
+
+
+            desc_iter = server_descriptor.parse_file(StringIO.StringIO(data), validate=False)
+            desc_entries = list(desc_iter)
+            desc = desc_entries[0]
+
+            # currently we require only advertised_bw
+            descriptors[desc.digest()] = min(desc.average_bandwidth,
+                                             desc.burst_bandwidth,
+                                             desc.observed_bandwidth)
+
+        tar_fh.close()
+
+def run(data):
     routers = []
     router = None
     result_string = []
     Wed, Wee, Wgd, Wgg = 1, 1, 1, 1
+
     # parse consensus
-    with open(file_name, 'r') as f:
-        for line in f.readlines():
+    for line in data.split("\n"):
+        try:
             key = line.split()[0]
             values = line.split()[1:]
-            if key =='r':
-                router = Router()
-                routers.append(router)
-                router.add_router_info(values)
-            elif key == 's':
-                router.add_flags(values)
-            elif key == 'w':
-                router.add_weights(values)
-            elif key == 'valid-after':
-                valid_after = ' '.join(values)
-            elif key == 'bandwidth-weights':
-                data = parse_bw_weights(values)
-                try:
-                    Wed = data['Wed']
-                    Wee = data['Wee']
-                    Wgd = data['Wgd']
-                    Wgg = data['Wgg']
-                except:
-                    pass
+        except:
+            continue
+        if key =='r':
+            router = Router()
+            routers.append(router)
+            router.add_router_info(values)
+        elif key == 's':
+            router.add_flags(values)
+        elif key == 'w':
+            router.add_weights(values)
+        elif key == 'valid-after':
+            valid_after = ' '.join(values)
+        elif key == 'bandwidth-weights':
+            data = parse_bw_weights(values)
+            try:
+                Wed = data['Wed']
+                Wee = data['Wee']
+                Wgd = data['Wgd']
+                Wgg = data['Wgg']
+            except:
+                pass
 
     if len(routers) <= 0:
         return
@@ -165,11 +195,13 @@ def parse_args():
     parser.add_option("-a", "--as", dest="as_db", default="GeoIPASNum.dat",
                       help="Input AS GeoIP database")
     parser.add_option("-s", "--server_desc", dest="server_desc",
-                      default="data/relay-descriptors/server-descriptors/", help="Server descriptors directory")
+                      default=False, help="Server descriptors directory")
     parser.add_option("-o", "--output", dest="output", default="entropy.csv",
                       help="Output filename")
     parser.add_option("-c", "--consensus", dest="consensus", default="in/consensus",
                       help="Input consensus dir")
+    parser.add_option("-p", "--pickled_data", dest="pickled_data", default=False,
+                      help="Input pickled file")
 
     (options, args) = parser.parse_args()
 
@@ -180,8 +212,31 @@ if __name__ == "__main__":
     gi_db = pygeoip.GeoIP(options.gi_db)
     as_db = pygeoip.GeoIP(options.as_db)
 
-    with open(options.output, 'w') as f:
+    server_desc_files = []
+    global descriptors
+
+    if options.pickled_data:
+        with open('data.pkl', 'rb') as pkl_input:
+            descriptors = pickle.load(pkl_input)
+
+    if options.server_desc:
+        # load all server descs into memeory
+        for file_name in os.listdir(options.server_desc):
+            server_desc_files.append(os.path.join(options.server_desc, file_name))
+        load_server_desc(server_desc_files)
+        with open('data.pkl', 'wb') as output:
+            pickle.dump(descriptors, output)
+
+    with open(options.output, 'w') as out_fh:
         for file_name in os.listdir(options.consensus):
-            string = run(os.path.join(options.consensus, file_name))
-            if string:
-                f.write("%s\n" % (string))
+            file_path = os.path.join(options.consensus, file_name)
+            tar_fh = tarfile.open(file_path)
+            for member in tar_fh:
+                if not member.isfile():
+                    continue
+                tar_file_data=tar_fh.extractfile(member)
+                data=tar_file_data.read()
+                output_string = run(data)
+                if output_string:
+                    out_fh.write("%s\n" % (output_string))
+            tar_fh.close()
