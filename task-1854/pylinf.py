@@ -89,7 +89,6 @@ def load_server_desc(tar_file_path):
             tar_file_data=tar_fh.extractfile(member)
             data=tar_file_data.read()
 
-
             desc_iter = server_descriptor.parse_file(StringIO.StringIO(data), validate=False)
             desc_entries = list(desc_iter)
             desc = desc_entries[0]
@@ -216,7 +215,7 @@ if __name__ == "__main__":
     global descriptors
 
     if options.pickled_data:
-        with open('data.pkl', 'rb') as pkl_input:
+        with open(options.pickled_data, 'rb') as pkl_input:
             descriptors = pickle.load(pkl_input)
 
     if options.server_desc:
